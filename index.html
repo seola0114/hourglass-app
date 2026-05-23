@@ -7,15 +7,24 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body {
-            width: 100%; height: 100%;
+            width: 100%; height: 100%; height: 100dvh;
             overflow: hidden;
+            position: fixed;
+            top: 0; left: 0;
             background: #080816;
-            touch-action: manipulation;
+            touch-action: none;
             user-select: none;
             -webkit-user-select: none;
             -webkit-tap-highlight-color: transparent;
+            -webkit-overflow-scrolling: auto;
         }
-        canvas { display: block; }
+        canvas {
+            display: block;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            touch-action: none;
+        }
     </style>
 </head>
 <body>
@@ -44,8 +53,8 @@
 
     function init() {
         dpr = Math.min(window.devicePixelRatio || 1, 2);
-        W = window.innerWidth;
-        H = window.innerHeight;
+        W = window.visualViewport?.width || window.innerWidth;
+        H = window.visualViewport?.height || window.innerHeight;
         canvas.width = W * dpr;
         canvas.height = H * dpr;
         canvas.style.width = W + 'px';
@@ -310,9 +319,13 @@
     }
 
     // --- Events ---
-    canvas.addEventListener('pointerdown', () => {
+    function handleTap(e) {
+        e.preventDefault();
         if (state !== 'COMPLETED') doFlip();
-    });
+    }
+    canvas.addEventListener('pointerdown', handleTap);
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); }, { passive: false });
+    document.addEventListener('touchmove', (e) => { e.preventDefault(); }, { passive: false });
 
     function onOri(e) {
         if (e.beta == null) return;
@@ -325,12 +338,18 @@
         }
     }
 
+    function requestOrientPermission() {
+        if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            DeviceOrientationEvent.requestPermission()
+                .then(r => { if (r === 'granted') window.addEventListener('deviceorientation', onOri); })
+                .catch(() => {});
+        }
+    }
+
     if (window.DeviceOrientationEvent) {
         if (typeof DeviceOrientationEvent.requestPermission === 'function') {
             canvas.addEventListener('pointerdown', function rp() {
-                DeviceOrientationEvent.requestPermission()
-                    .then(r => { if (r === 'granted') window.addEventListener('deviceorientation', onOri); })
-                    .catch(() => {});
+                requestOrientPermission();
                 canvas.removeEventListener('pointerdown', rp);
             });
         } else {
@@ -339,6 +358,7 @@
     }
 
     window.addEventListener('resize', () => { init(); });
+    window.visualViewport?.addEventListener('resize', () => { init(); });
     try { screen.orientation?.lock?.('portrait').catch(() => {}); } catch (e) {}
 
     // --- Main Loop ---
