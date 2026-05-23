@@ -8,386 +8,480 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body {
             width: 100%; height: 100%; height: 100dvh;
-            overflow: hidden;
-            position: fixed;
-            top: 0; left: 0;
-            background: #080816;
-            touch-action: none;
-            user-select: none;
+            overflow: hidden; position: fixed; top: 0; left: 0;
+            background: #060612;
+            touch-action: none; user-select: none;
             -webkit-user-select: none;
             -webkit-tap-highlight-color: transparent;
-            -webkit-overflow-scrolling: auto;
         }
-        canvas {
-            display: block;
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            touch-action: none;
+        canvas { display: block; position: fixed; top: 0; left: 0; touch-action: none; }
+        #ui {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 10;
+            display: flex; flex-direction: column; align-items: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        #status {
+            margin-top: 40px; color: rgba(255,255,255,0.35);
+            font-size: 12px; font-weight: 600; letter-spacing: 2px;
+        }
+        #status.done { color: rgba(255,215,0,0.75); }
+        #timer {
+            margin-top: 8px; color: rgba(255,255,255,0.6);
+            font-size: 24px; font-weight: 300;
+            font-family: ui-monospace, 'SF Mono', monospace;
+            min-height: 30px;
+        }
+        #hint {
+            position: fixed; bottom: 32px; left: 0; width: 100%;
+            text-align: center; color: rgba(255,255,255,0.18);
+            font-size: 11px;
         }
     </style>
 </head>
 <body>
-<canvas id="c"></canvas>
-<script>
-(() => {
-    'use strict';
-    const canvas = document.getElementById('c');
-    const ctx = canvas.getContext('2d');
+<div id="ui">
+    <div id="status">대기 중</div>
+    <div id="timer"></div>
+    <div id="hint">화면을 탭하여 뒤집기</div>
+</div>
+<script type="module">
+import * as THREE from 'https://unpkg.com/three@0.164.1/build/three.module.js';
 
-    const CELL = 3;
-    const COLORS = ['#E8A624','#D4941A','#CC8820','#DEA520','#F0B418','#D4A020','#C89030','#E0AA28'];
-    const STEPS = 3;
-    const DONE_DELAY = 3000;
-    const DURATION = 60; // seconds
+// ── Config ──
+const HG_H = 4, MAX_R = 0.82, NECK_R = 0.12;
+const CELL = 1, STEPS = 3, DURATION = 60, DONE_DELAY = 3000;
+const SAND_HEX = [0xE8A624,0xD4941A,0xCC8820,0xDEA520,0xF0B418,0xD4A020,0xC89030,0xE0AA28];
+const SAND_COL = SAND_HEX.map(h => new THREE.Color(h));
+const P_SIZE = 0.038;
 
-    let state = 'IDLE';
-    let W, H, dpr;
-    let gW, gH, cCol, cRow, maxHW, neckHW;
-    let sand, clr, bnd, mv;
-    let colArr;
-    let t0 = 0, tDone = 0;
-    let sparks = [], stars = [];
-    let prevFlip = false, hasOrient = false, fc = 0;
-    let totalSandCount = 0, neckFlowBudget = 0, neckFlowPerFrame = 0;
+// ── State ──
+let state = 'IDLE', W, H, dpr;
+let gW = 65, gH = 130, cCol, cRow, maxHW, neckHW = 2;
+let sand, clr, bnd, mv, colArr;
+let t0 = 0, tDone = 0, fc = 0;
+let totalSandCount = 0, neckFlowBudget = 0, neckFlowPerFrame = 0;
+let prevFlip = false, hasOrient = false;
+let flipAnim = -1, flipDur = 0.55;
+let particlePos;
 
-    function init() {
-        dpr = Math.min(window.devicePixelRatio || 1, 2);
-        W = window.visualViewport?.width || window.innerWidth;
-        H = window.visualViewport?.height || window.innerHeight;
-        canvas.width = W * dpr;
-        canvas.height = H * dpr;
-        canvas.style.width = W + 'px';
-        canvas.style.height = H + 'px';
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+// ── UI refs ──
+const statusEl = document.getElementById('status');
+const timerEl = document.getElementById('timer');
+const hintEl = document.getElementById('hint');
 
-        const hw = Math.min(W * 0.52, 200);
-        const hh = Math.min(H * 0.6, 480);
-        gW = Math.floor(hw / CELL) | 1;
-        gH = Math.floor(hh / CELL);
-        cCol = gW >> 1;
-        cRow = gH >> 1;
-        maxHW = cCol;
-        neckHW = 2;
+// ── Three.js Setup ──
+W = window.visualViewport?.width || window.innerWidth;
+H = window.visualViewport?.height || window.innerHeight;
+dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-        const n = gW * gH;
-        sand = new Uint8Array(n);
-        clr = new Uint8Array(n);
-        bnd = new Uint8Array(n);
-        mv = new Uint8Array(n);
-        colArr = Array.from({ length: gW }, (_, i) => i);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x060612);
+scene.fog = new THREE.FogExp2(0x060612, 0.06);
 
-        for (let r = 0; r < gH; r++) {
-            const w = hw2(r);
-            for (let c = 0; c < gW; c++)
-                bnd[r * gW + c] = Math.abs(c - cCol) <= w ? 1 : 0;
+const camera = new THREE.PerspectiveCamera(32, W / H, 0.1, 100);
+camera.position.set(0.6, 0.5, 6);
+camera.lookAt(0, 0, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(W, H);
+renderer.setPixelRatio(dpr);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+document.body.appendChild(renderer.domElement);
+
+// ── Lights ──
+scene.add(new THREE.AmbientLight(0x303050, 0.8));
+const dirLight = new THREE.DirectionalLight(0xffeedd, 1.8);
+dirLight.position.set(3, 4, 5);
+scene.add(dirLight);
+const rimLight = new THREE.DirectionalLight(0x4488cc, 0.6);
+rimLight.position.set(-3, -1, -3);
+scene.add(rimLight);
+const warmLight = new THREE.PointLight(0xff8833, 0.4, 10);
+warmLight.position.set(0, -1, 3);
+scene.add(warmLight);
+
+// ── Hourglass Group ──
+const hgGroup = new THREE.Group();
+scene.add(hgGroup);
+
+// Glass profile
+function glassProfile() {
+    const pts = [];
+    for (let i = 0; i <= 80; i++) {
+        const t = i / 80;
+        const d = Math.abs(t - 0.5) * 2;
+        const r = NECK_R + (MAX_R - NECK_R) * Math.pow(d, 1.6);
+        pts.push(new THREE.Vector2(r, (t - 0.5) * HG_H));
+    }
+    return pts;
+}
+
+// Glass body
+const glassGeo = new THREE.LatheGeometry(glassProfile(), 48);
+const glassMat = new THREE.MeshPhysicalMaterial({
+    color: 0x99bbdd,
+    transparent: true, opacity: 0.13,
+    roughness: 0.02, metalness: 0.05,
+    side: THREE.DoubleSide, depthWrite: false
+});
+hgGroup.add(new THREE.Mesh(glassGeo, glassMat));
+
+// Glass rim glow
+const rimMat = new THREE.MeshBasicMaterial({
+    color: 0x5599bb, transparent: true, opacity: 0.06,
+    side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false
+});
+const rimMesh = new THREE.Mesh(glassGeo.clone(), rimMat);
+rimMesh.scale.multiplyScalar(1.015);
+hgGroup.add(rimMesh);
+
+// Glass specular highlight line
+const highlightGeo = new THREE.LatheGeometry(
+    glassProfile().map(p => new THREE.Vector2(p.x * 1.005, p.y)), 4, 0, 0.15
+);
+const highlightMat = new THREE.MeshBasicMaterial({
+    color: 0xffffff, transparent: true, opacity: 0.08,
+    side: THREE.DoubleSide, depthWrite: false
+});
+hgGroup.add(new THREE.Mesh(highlightGeo, highlightMat));
+
+// Frame bars
+const frameMat = new THREE.MeshStandardMaterial({ color: 0x6B4E37, roughness: 0.55, metalness: 0.25 });
+const frameHighMat = new THREE.MeshStandardMaterial({ color: 0x8B6B50, roughness: 0.5, metalness: 0.2 });
+for (const ySign of [-1, 1]) {
+    const y = ySign * (HG_H / 2 + 0.06);
+    const frame = new THREE.Mesh(
+        new THREE.CylinderGeometry(MAX_R + 0.06, MAX_R + 0.06, 0.12, 32),
+        frameMat
+    );
+    frame.position.y = y;
+    hgGroup.add(frame);
+    // Frame edge highlight
+    const edge = new THREE.Mesh(
+        new THREE.TorusGeometry(MAX_R + 0.06, 0.015, 8, 32),
+        frameHighMat
+    );
+    edge.position.y = y + ySign * 0.055;
+    edge.rotation.x = Math.PI / 2;
+    hgGroup.add(edge);
+}
+
+// Posts
+const postMat = new THREE.MeshStandardMaterial({ color: 0x7A5B42, roughness: 0.5, metalness: 0.3 });
+for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+    const post = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.035, 0.035, HG_H + 0.24, 8),
+        postMat
+    );
+    post.position.set(Math.cos(a) * (MAX_R + 0.02), 0, Math.sin(a) * (MAX_R + 0.02));
+    hgGroup.add(post);
+}
+
+// ── Sand Grid Init ──
+cCol = gW >> 1;
+cRow = gH >> 1;
+maxHW = cCol;
+const n = gW * gH;
+sand = new Uint8Array(n);
+clr = new Uint8Array(n);
+bnd = new Uint8Array(n);
+mv = new Uint8Array(n);
+colArr = Array.from({ length: gW }, (_, i) => i);
+
+function hw2(row) {
+    const d = Math.abs(row / (gH - 1) - 0.5) * 2;
+    return Math.floor(neckHW + (maxHW - neckHW) * Math.pow(d, 1.6));
+}
+function radius3D(row) {
+    const d = Math.abs(row / (gH - 1) - 0.5) * 2;
+    return NECK_R + (MAX_R - NECK_R) * Math.pow(d, 1.6);
+}
+
+for (let r = 0; r < gH; r++) {
+    const w = hw2(r);
+    for (let c = 0; c < gW; c++)
+        bnd[r * gW + c] = Math.abs(c - cCol) <= w ? 1 : 0;
+}
+
+// Pre-compute 3D positions for each grid cell
+particlePos = new Float32Array(n * 3);
+for (let r = 0; r < gH; r++) {
+    const y = (0.5 - r / (gH - 1)) * HG_H;
+    const r3d = radius3D(r) * 0.82;
+    const hw = hw2(r) || 1;
+    for (let c = 0; c < gW; c++) {
+        const idx = (r * gW + c) * 3;
+        const offset = c - cCol;
+        const x = (offset / hw) * r3d;
+        const zMax = Math.sqrt(Math.max(0, r3d * r3d - x * x));
+        const hash = Math.sin(r * 127.1 + c * 311.7) * 43758.5453;
+        const zNorm = (hash - Math.floor(hash)) * 2 - 1;
+        particlePos[idx] = x;
+        particlePos[idx + 1] = y;
+        particlePos[idx + 2] = zNorm * zMax;
+    }
+}
+
+function fillBottom() {
+    sand.fill(0);
+    for (let r = cRow + 2; r < gH; r++)
+        for (let c = 0; c < gW; c++) {
+            const i = r * gW + c;
+            if (bnd[i]) { sand[i] = 1; clr[i] = (Math.random() * SAND_HEX.length) | 0; }
         }
+}
+fillBottom();
+totalSandCount = sand.reduce((a, b) => a + b, 0);
+neckFlowPerFrame = totalSandCount / (DURATION * 60);
 
-        stars = Array.from({ length: 50 }, () => ({
-            x: Math.random() * W, y: Math.random() * H,
-            r: .3 + Math.random() * .8, a: .15 + Math.random() * .4,
-            s: .3 + Math.random()
-        }));
-        fillBottom();
-        totalSandCount = sand.reduce((a, b) => a + b, 0);
-        neckFlowPerFrame = totalSandCount / (DURATION * 60);
-        neckFlowBudget = 0;
+// ── Sand InstancedMesh ──
+const sandGeo = new THREE.IcosahedronGeometry(P_SIZE, 0);
+const sandMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+const sandMesh = new THREE.InstancedMesh(sandGeo, sandMat, totalSandCount + 500);
+sandMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+hgGroup.add(sandMesh);
+
+const _mat4 = new THREE.Matrix4();
+const _pos = new THREE.Vector3();
+const _quat = new THREE.Quaternion();
+const _scl = new THREE.Vector3(1, 1, 1);
+
+function updateSandMesh() {
+    let count = 0;
+    for (let i = 0; i < n; i++) {
+        if (!sand[i]) continue;
+        const pi = i * 3;
+        _pos.set(particlePos[pi], particlePos[pi + 1], particlePos[pi + 2]);
+        _mat4.compose(_pos, _quat, _scl);
+        sandMesh.setMatrixAt(count, _mat4);
+        sandMesh.setColorAt(count, SAND_COL[clr[i]]);
+        count++;
     }
+    sandMesh.count = count;
+    sandMesh.instanceMatrix.needsUpdate = true;
+    if (sandMesh.instanceColor) sandMesh.instanceColor.needsUpdate = true;
+}
+updateSandMesh();
 
-    function hw2(row) {
-        const d = Math.abs(row / (gH - 1) - .5) * 2;
-        return Math.floor(neckHW + (maxHW - neckHW) * Math.pow(d, 1.6));
+// ── Sparkle Points ──
+const SPARK_N = 30;
+const sparkGeo2 = new THREE.BufferGeometry();
+const sparkPos = new Float32Array(SPARK_N * 3);
+const sparkSizes = new Float32Array(SPARK_N);
+sparkGeo2.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3));
+sparkGeo2.setAttribute('size', new THREE.BufferAttribute(sparkSizes, 1));
+const sparkMat2 = new THREE.PointsMaterial({
+    color: 0xFFD700, size: 0.08, transparent: true, opacity: 0,
+    blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+});
+const sparkPoints = new THREE.Points(sparkGeo2, sparkMat2);
+hgGroup.add(sparkPoints);
+
+function initSparks() {
+    for (let i = 0; i < SPARK_N; i++) {
+        const r = cRow + 3 + Math.random() * (gH - cRow - 6);
+        const hw = hw2(Math.round(r));
+        const offset = (Math.random() - 0.5) * hw;
+        const r3d = radius3D(Math.round(r)) * 0.7;
+        const x = (offset / (hw || 1)) * r3d;
+        const zMax = Math.sqrt(Math.max(0, r3d * r3d - x * x));
+        sparkPos[i * 3] = x;
+        sparkPos[i * 3 + 1] = (0.5 - r / (gH - 1)) * HG_H;
+        sparkPos[i * 3 + 2] = (Math.random() * 2 - 1) * zMax;
+        sparkSizes[i] = 0.04 + Math.random() * 0.08;
     }
+    sparkGeo2.attributes.position.needsUpdate = true;
+}
 
-    function fillBottom() {
-        sand.fill(0);
-        for (let r = cRow + 2; r < gH; r++)
-            for (let c = 0; c < gW; c++) {
-                const i = r * gW + c;
-                if (bnd[i]) { sand[i] = 1; clr[i] = (Math.random() * COLORS.length) | 0; }
+// ── Sand Physics ──
+function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = (Math.random() * (i + 1)) | 0;
+        const t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+}
+function simStep() {
+    mv.fill(0);
+    for (let r = gH - 2; r >= 0; r--) {
+        shuffle(colArr);
+        for (let ci = 0; ci < gW; ci++) {
+            const c = colArr[ci];
+            const i = r * gW + c;
+            if (!sand[i] || mv[i]) continue;
+            const isGate = (r === cRow);
+            const b = i + gW;
+            if (bnd[b] && !sand[b]) {
+                if (isGate && neckFlowBudget < 1) continue;
+                sand[b] = 1; clr[b] = clr[i]; sand[i] = 0; mv[b] = 1;
+                if (isGate) neckFlowBudget -= 1;
+                continue;
             }
-    }
-
-    // --- Sand Physics ---
-    function shuffle(a) {
-        for (let i = a.length - 1; i > 0; i--) {
-            const j = (Math.random() * (i + 1)) | 0;
-            const t = a[i]; a[i] = a[j]; a[j] = t;
-        }
-    }
-
-    function simStep() {
-        mv.fill(0);
-        for (let r = gH - 2; r >= 0; r--) {
-            shuffle(colArr);
-            for (let ci = 0; ci < gW; ci++) {
-                const c = colArr[ci];
-                const i = r * gW + c;
-                if (!sand[i] || mv[i]) continue;
-                const isGate = (r === cRow);
-                const b = i + gW;
-                if (bnd[b] && !sand[b]) {
-                    if (isGate && neckFlowBudget < 1) continue;
-                    sand[b] = 1; clr[b] = clr[i]; sand[i] = 0; mv[b] = 1;
+            const d1 = Math.random() < 0.5 ? 1 : -1;
+            for (const d of [d1, -d1]) {
+                const nc = c + d;
+                if (nc < 0 || nc >= gW) continue;
+                const di = (r + 1) * gW + nc;
+                if (bnd[di] && !sand[di]) {
+                    if (isGate && neckFlowBudget < 1) break;
+                    sand[di] = 1; clr[di] = clr[i]; sand[i] = 0; mv[di] = 1;
                     if (isGate) neckFlowBudget -= 1;
-                    continue;
-                }
-                const d1 = Math.random() < .5 ? 1 : -1;
-                for (const d of [d1, -d1]) {
-                    const nc = c + d;
-                    if (nc < 0 || nc >= gW) continue;
-                    const di = (r + 1) * gW + nc;
-                    if (bnd[di] && !sand[di]) {
-                        if (isGate && neckFlowBudget < 1) break;
-                        sand[di] = 1; clr[di] = clr[i]; sand[i] = 0; mv[di] = 1;
-                        if (isGate) neckFlowBudget -= 1;
-                        break;
-                    }
+                    break;
                 }
             }
         }
     }
-
-    function flipGrid() {
-        const n = gW * gH;
-        const ts = new Uint8Array(n), tc = new Uint8Array(n);
-        for (let r = 0; r < gH; r++) {
-            const mr = gH - 1 - r;
-            for (let c = 0; c < gW; c++) {
-                const si = r * gW + c, di = mr * gW + c;
-                if (sand[si] && bnd[di]) { ts[di] = 1; tc[di] = clr[si]; }
-            }
-        }
-        sand.set(ts); clr.set(tc);
-    }
-
-    function isDone() {
-        for (let r = 0; r <= cRow; r++)
-            for (let c = 0; c < gW; c++)
-                if (sand[r * gW + c]) return false;
-        return true;
-    }
-
-    // --- State Machine ---
-    function doFlip() {
-        if (state === 'IDLE') {
-            flipGrid(); state = 'RUNNING'; t0 = Date.now();
-            neckFlowBudget = 0;
-        } else if (state === 'RUNNING') {
-            flipGrid(); state = 'IDLE';
+}
+function flipGrid() {
+    const ts = new Uint8Array(n), tc = new Uint8Array(n);
+    for (let r = 0; r < gH; r++) {
+        const mr = gH - 1 - r;
+        for (let c = 0; c < gW; c++) {
+            const si = r * gW + c, di = mr * gW + c;
+            if (sand[si] && bnd[di]) { ts[di] = 1; tc[di] = clr[si]; }
         }
     }
+    sand.set(ts); clr.set(tc);
+}
+function isDone() {
+    for (let r = 0; r <= cRow; r++)
+        for (let c = 0; c < gW; c++)
+            if (sand[r * gW + c]) return false;
+    return true;
+}
 
-    // --- Drawing ---
-    const OX = () => W / 2 - (gW * CELL) / 2;
-    const OY = () => H / 2 - (gH * CELL) / 2;
-
-    function hgPath() {
-        const x = OX(), y = OY(), w = gW * CELL, h = gH * CELL;
-        const cy = y + h / 2;
-        const nw = (neckHW * 2 + 1) * CELL;
-        const nl = W / 2 - nw / 2, nr = W / 2 + nw / 2;
-        ctx.beginPath();
-        ctx.moveTo(x, y); ctx.lineTo(x + w, y);
-        ctx.bezierCurveTo(x + w, y + h * .38, nr, cy - h * .06, nr, cy);
-        ctx.bezierCurveTo(nr, cy + h * .06, x + w, y + h * .62, x + w, y + h);
-        ctx.lineTo(x, y + h);
-        ctx.bezierCurveTo(x, y + h * .62, nl, cy + h * .06, nl, cy);
-        ctx.bezierCurveTo(nl, cy - h * .06, x, y + h * .38, x, y);
-        ctx.closePath();
+// ── State Machine ──
+function doFlip() {
+    if (flipAnim >= 0) return;
+    if (state === 'COMPLETED') return;
+    flipAnim = 0;
+    if (state === 'IDLE') {
+        state = 'RUNNING'; t0 = Date.now(); neckFlowBudget = 0;
+    } else if (state === 'RUNNING') {
+        state = 'IDLE';
     }
+    updateUI();
+}
 
-    function rRect(x, y, w, h, r) {
-        ctx.beginPath();
-        ctx.moveTo(x + r, y);
-        ctx.arcTo(x + w, y, x + w, y + h, r);
-        ctx.arcTo(x + w, y + h, x, y + h, r);
-        ctx.arcTo(x, y + h, x, y, r);
-        ctx.arcTo(x, y, x + w, y, r);
-        ctx.closePath(); ctx.fill();
+function updateUI() {
+    statusEl.textContent = state === 'IDLE' ? '대기 중' : state === 'RUNNING' ? '진행 중' : '완료';
+    statusEl.className = state === 'COMPLETED' ? 'done' : '';
+    hintEl.textContent = hasOrient ? '폰을 뒤집거나 화면을 탭하세요' : '화면을 탭하여 뒤집기';
+}
+
+// ── Events ──
+renderer.domElement.addEventListener('pointerdown', (e) => { e.preventDefault(); doFlip(); });
+renderer.domElement.addEventListener('touchstart', (e) => { e.preventDefault(); }, { passive: false });
+document.addEventListener('touchmove', (e) => { e.preventDefault(); }, { passive: false });
+
+function onOri(e) {
+    if (e.beta == null) return;
+    hasOrient = true;
+    const f = e.beta < -30;
+    if (f !== prevFlip) {
+        prevFlip = f;
+        if (f && state === 'IDLE') doFlip();
+        else if (!f && state === 'RUNNING') doFlip();
     }
-
-    function drawBg() {
-        const g = ctx.createLinearGradient(0, 0, 0, H);
-        g.addColorStop(0, '#07071a'); g.addColorStop(.5, '#0c0c20'); g.addColorStop(1, '#07071a');
-        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-        const t = Date.now() * .001;
-        for (const s of stars) {
-            ctx.globalAlpha = s.a * (.4 + .6 * Math.sin(t * s.s + s.x));
-            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 6.283); ctx.fill();
-        }
-        ctx.globalAlpha = 1;
-    }
-
-    function drawGlass() {
-        ctx.save();
-        ctx.shadowColor = 'rgba(60,140,255,.06)'; ctx.shadowBlur = 50;
-        hgPath(); ctx.fillStyle = 'rgba(140,190,255,.03)'; ctx.fill();
-        ctx.restore();
-        hgPath();
-        const g = ctx.createLinearGradient(0, OY(), 0, OY() + gH * CELL);
-        g.addColorStop(0, 'rgba(180,210,255,.06)');
-        g.addColorStop(.5, 'rgba(180,210,255,.015)');
-        g.addColorStop(1, 'rgba(180,210,255,.06)');
-        ctx.fillStyle = g; ctx.fill();
-    }
-
-    function drawSand() {
-        const x0 = OX(), y0 = OY();
-        ctx.save(); hgPath(); ctx.clip();
-        const bins = {};
-        for (let r = 0; r < gH; r++)
-            for (let c = 0; c < gW; c++) {
-                const i = r * gW + c;
-                if (!sand[i]) continue;
-                (bins[clr[i]] || (bins[clr[i]] = [])).push(c, r);
-            }
-        for (const ci in bins) {
-            ctx.fillStyle = COLORS[ci]; ctx.beginPath();
-            const a = bins[ci];
-            for (let j = 0; j < a.length; j += 2)
-                ctx.rect(x0 + a[j] * CELL, y0 + a[j + 1] * CELL, CELL, CELL);
-            ctx.fill();
-        }
-        ctx.restore();
-    }
-
-    function drawFrame() {
-        const x0 = OX(), y0 = OY(), w = gW * CELL, h = gH * CELL;
-        const fh = 10, ex = 6;
-        for (const fy of [y0 - fh, y0 + h]) {
-            const g = ctx.createLinearGradient(0, fy, 0, fy + fh);
-            g.addColorStop(0, '#6B4E37'); g.addColorStop(.4, '#8B6B50');
-            g.addColorStop(.7, '#7A5B42'); g.addColorStop(1, '#5A3E28');
-            ctx.fillStyle = g; rRect(x0 - ex, fy, w + ex * 2, fh, 3);
-            ctx.fillStyle = 'rgba(255,255,255,.07)';
-            ctx.fillRect(x0 - ex + 2, fy + 1.5, w + ex * 2 - 4, 1.5);
-        }
-        hgPath();
-        ctx.strokeStyle = 'rgba(200,215,235,.16)'; ctx.lineWidth = 1.2; ctx.stroke();
-    }
-
-    function makeSparks() {
-        sparks = [];
-        const x0 = OX(), y0 = OY();
-        for (let i = 0; i < 24; i++) {
-            const r = cRow + 3 + Math.random() * (gH - cRow - 6);
-            sparks.push({
-                x: x0 + (cCol + (Math.random() - .5) * hw2(Math.round(r)) * 1.4) * CELL,
-                y: y0 + r * CELL,
-                sz: 1.5 + Math.random() * 3, a: .6 + Math.random() * .4,
-                v: .5 + Math.random() * 2, p: Math.random() * 6.283,
-                c: Math.random() < .3 ? '#FFF5D4' : '#FFD700'
-            });
-        }
-    }
-
-    function drawSparks(t) {
-        for (const s of sparks) {
-            const a = s.a * (.3 + .7 * Math.max(0, Math.sin(t * .004 * s.v + s.p)));
-            if (a < .02) continue;
-            ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = s.c;
-            ctx.translate(s.x, s.y); ctx.rotate(t * .001 * s.v);
-            const z = s.sz;
-            ctx.beginPath();
-            ctx.moveTo(0, -z); ctx.lineTo(z * .25, -z * .25);
-            ctx.lineTo(z, 0); ctx.lineTo(z * .25, z * .25);
-            ctx.lineTo(0, z); ctx.lineTo(-z * .25, z * .25);
-            ctx.lineTo(-z, 0); ctx.lineTo(-z * .25, -z * .25);
-            ctx.closePath(); ctx.fill(); ctx.restore();
-        }
-    }
-
-    function drawUI() {
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        const lbl = state === 'IDLE' ? '대기 중' : state === 'RUNNING' ? '진행 중' : '완료';
-        ctx.fillStyle = state === 'COMPLETED' ? 'rgba(255,215,0,.75)' : 'rgba(255,255,255,.35)';
-        ctx.font = '600 12px -apple-system,BlinkMacSystemFont,sans-serif';
-        ctx.fillText(lbl, W / 2, 44);
-        if (state === 'RUNNING' || state === 'COMPLETED') {
-            const e = ((state === 'COMPLETED' ? tDone : Date.now()) - t0) / 1000;
-            ctx.fillStyle = 'rgba(255,255,255,.6)';
-            ctx.font = '300 24px ui-monospace,monospace';
-            ctx.fillText(`${(e / 60) | 0}:${String((e % 60) | 0).padStart(2, '0')}`, W / 2, 76);
-        }
-        ctx.fillStyle = 'rgba(255,255,255,.18)';
-        ctx.font = '400 11px -apple-system,BlinkMacSystemFont,sans-serif';
-        ctx.fillText(
-            hasOrient ? '폰을 뒤집거나 화면을 탭하세요' : '화면을 탭하여 뒤집기',
-            W / 2, H - 36
-        );
-    }
-
-    // --- Events ---
-    function handleTap(e) {
-        e.preventDefault();
-        if (state !== 'COMPLETED') doFlip();
-    }
-    canvas.addEventListener('pointerdown', handleTap);
-    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); }, { passive: false });
-    document.addEventListener('touchmove', (e) => { e.preventDefault(); }, { passive: false });
-
-    function onOri(e) {
-        if (e.beta == null) return;
-        hasOrient = true;
-        const f = e.beta < -30;
-        if (f !== prevFlip) {
-            prevFlip = f;
-            if (f && state === 'IDLE') doFlip();
-            else if (!f && state === 'RUNNING') doFlip();
-        }
-    }
-
-    function requestOrientPermission() {
-        if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+}
+if (window.DeviceOrientationEvent) {
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        renderer.domElement.addEventListener('pointerdown', function rp() {
             DeviceOrientationEvent.requestPermission()
                 .then(r => { if (r === 'granted') window.addEventListener('deviceorientation', onOri); })
                 .catch(() => {});
-        }
+            renderer.domElement.removeEventListener('pointerdown', rp);
+        });
+    } else {
+        window.addEventListener('deviceorientation', onOri);
     }
+}
 
-    if (window.DeviceOrientationEvent) {
-        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-            canvas.addEventListener('pointerdown', function rp() {
-                requestOrientPermission();
-                canvas.removeEventListener('pointerdown', rp);
-            });
+function onResize() {
+    W = window.visualViewport?.width || window.innerWidth;
+    H = window.visualViewport?.height || window.innerHeight;
+    camera.aspect = W / H;
+    camera.updateProjectionMatrix();
+    renderer.setSize(W, H);
+}
+window.addEventListener('resize', onResize);
+window.visualViewport?.addEventListener('resize', onResize);
+try { screen.orientation?.lock?.('portrait').catch(() => {}); } catch (e) {}
+
+// ── Animation Loop ──
+let prevTime = 0;
+function animate(time) {
+    const dt = Math.min((time - (prevTime || time)) / 1000, 0.1);
+    prevTime = time;
+    fc++;
+
+    // Flip animation
+    if (flipAnim >= 0) {
+        flipAnim += dt / flipDur;
+        if (flipAnim >= 1) {
+            flipAnim = -1;
+            flipGrid();
+            hgGroup.rotation.x = 0;
         } else {
-            window.addEventListener('deviceorientation', onOri);
+            const t = flipAnim;
+            const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+            hgGroup.rotation.x = ease * Math.PI;
         }
     }
 
-    window.addEventListener('resize', () => { init(); });
-    window.visualViewport?.addEventListener('resize', () => { init(); });
-    try { screen.orientation?.lock?.('portrait').catch(() => {}); } catch (e) {}
-
-    // --- Main Loop ---
-    function loop(t) {
-        fc++;
-        drawBg();
-
-        if (state === 'RUNNING') {
-            neckFlowBudget = Math.min(neckFlowBudget + neckFlowPerFrame, 3);
-            for (let i = 0; i < STEPS; i++) simStep();
-            if (fc % 20 === 0 && isDone()) {
-                state = 'COMPLETED'; tDone = Date.now(); makeSparks();
-                try { navigator.vibrate?.(200); } catch (e) {}
-            }
+    // Sand simulation
+    if (state === 'RUNNING' && flipAnim < 0) {
+        neckFlowBudget = Math.min(neckFlowBudget + neckFlowPerFrame, 3);
+        for (let i = 0; i < STEPS; i++) simStep();
+        if (fc % 20 === 0 && isDone()) {
+            state = 'COMPLETED'; tDone = Date.now();
+            initSparks();
+            sparkMat2.opacity = 0.9;
+            try { navigator.vibrate?.(200); } catch (e) {}
+            updateUI();
         }
-
-        if (state === 'COMPLETED' && Date.now() - tDone > DONE_DELAY) {
-            state = 'IDLE'; fillBottom(); sparks = [];
-        }
-
-        drawGlass(); drawSand(); drawFrame();
-        if (state === 'COMPLETED') drawSparks(t);
-        drawUI();
-        requestAnimationFrame(loop);
     }
 
-    init();
-    requestAnimationFrame(loop);
-})();
+    // Completion → reset
+    if (state === 'COMPLETED') {
+        const elapsed = Date.now() - tDone;
+        const pulse = Math.sin(elapsed * 0.006) * 0.4 + 0.5;
+        sparkMat2.opacity = pulse;
+        warmLight.intensity = 0.4 + pulse * 0.4;
+        if (elapsed > DONE_DELAY) {
+            state = 'IDLE'; fillBottom(); sparkMat2.opacity = 0;
+            warmLight.intensity = 0.4;
+            updateUI();
+        }
+    } else {
+        sparkMat2.opacity = 0;
+    }
+
+    // Update sand mesh
+    updateSandMesh();
+
+    // Timer UI
+    if (state === 'RUNNING' || state === 'COMPLETED') {
+        const e = ((state === 'COMPLETED' ? tDone : Date.now()) - t0) / 1000;
+        timerEl.textContent = `${(e / 60) | 0}:${String((e % 60) | 0).padStart(2, '0')}`;
+    } else {
+        timerEl.textContent = '';
+    }
+
+    // Subtle camera sway
+    const st = time * 0.0002;
+    camera.position.x = 0.6 + Math.sin(st) * 0.15;
+    camera.position.y = 0.5 + Math.cos(st * 0.7) * 0.08;
+    camera.lookAt(0, 0, 0);
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(animate);
+}
+
+updateUI();
+requestAnimationFrame(animate);
 </script>
 </body>
 </html>
