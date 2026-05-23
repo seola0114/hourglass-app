@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>모래시계</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100%;
+            overflow: hidden;
+            background: #080816;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+(() => {
+    'use strict';
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+
+    const CELL = 3;
+    const COLORS = ['#E8A624','#D4941A','#CC8820','#DEA520','#F0B418','#D4A020','#C89030','#E0AA28'];
+    const STEPS = 3;
+    const DONE_DELAY = 3000;
+    const DURATION = 60; // seconds
+
+    let state = 'IDLE';
+    let W, H, dpr;
+    let gW, gH, cCol, cRow, maxHW, neckHW;
+    let sand, clr, bnd, mv;
+    let colArr;
+    let t0 = 0, tDone = 0;
+    let sparks = [], stars = [];
+    let prevFlip = false, hasOrient = false, fc = 0;
+    let totalSandCount = 0, neckFlowBudget = 0, neckFlowPerFrame = 0;
+
+    function init() {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        W = window.innerWidth;
+        H = window.innerHeight;
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        canvas.style.width = W + 'px';
+        canvas.style.height = H + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        const hw = Math.min(W * 0.52, 200);
+        const hh = Math.min(H * 0.6, 480);
+        gW = Math.floor(hw / CELL) | 1;
+        gH = Math.floor(hh / CELL);
+        cCol = gW >> 1;
+        cRow = gH >> 1;
+        maxHW = cCol;
+        neckHW = 2;
+
+        const n = gW * gH;
+        sand = new Uint8Array(n);
+        clr = new Uint8Array(n);
+        bnd = new Uint8Array(n);
+        mv = new Uint8Array(n);
+        colArr = Array.from({ length: gW }, (_, i) => i);
+
+        for (let r = 0; r < gH; r++) {
+            const w = hw2(r);
+            for (let c = 0; c < gW; c++)
+                bnd[r * gW + c] = Math.abs(c - cCol) <= w ? 1 : 0;
+        }
+
+        stars = Array.from({ length: 50 }, () => ({
+            x: Math.random() * W, y: Math.random() * H,
+            r: .3 + Math.random() * .8, a: .15 + Math.random() * .4,
+            s: .3 + Math.random()
+        }));
+        fillBottom();
+        totalSandCount = sand.reduce((a, b) => a + b, 0);
+        neckFlowPerFrame = totalSandCount / (DURATION * 60);
+        neckFlowBudget = 0;
+    }
+
+    function hw2(row) {
+        const d = Math.abs(row / (gH - 1) - .5) * 2;
+        return Math.floor(neckHW + (maxHW - neckHW) * Math.pow(d, 1.6));
+    }
+
+    function fillBottom() {
+        sand.fill(0);
+        for (let r = cRow + 2; r < gH; r++)
+            for (let c = 0; c < gW; c++) {
+                const i = r * gW + c;
+                if (bnd[i]) { sand[i] = 1; clr[i] = (Math.random() * COLORS.length) | 0; }
+            }
+    }
+
+    // --- Sand Physics ---
+    function shuffle(a) {
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = (Math.random() * (i + 1)) | 0;
+            const t = a[i]; a[i] = a[j]; a[j] = t;
+        }
+    }
+
+    function simStep() {
+        mv.fill(0);
+        for (let r = gH - 2; r >= 0; r--) {
+            shuffle(colArr);
+            for (let ci = 0; ci < gW; ci++) {
+                const c = colArr[ci];
+                const i = r * gW + c;
+                if (!sand[i] || mv[i]) continue;
+                const isGate = (r === cRow);
+                const b = i + gW;
+                if (bnd[b] && !sand[b]) {
+                    if (isGate && neckFlowBudget < 1) continue;
+                    sand[b] = 1; clr[b] = clr[i]; sand[i] = 0; mv[b] = 1;
+                    if (isGate) neckFlowBudget -= 1;
+                    continue;
+                }
+                const d1 = Math.random() < .5 ? 1 : -1;
+                for (const d of [d1, -d1]) {
+                    const nc = c + d;
+                    if (nc < 0 || nc >= gW) continue;
+                    const di = (r + 1) * gW + nc;
+                    if (bnd[di] && !sand[di]) {
+                        if (isGate && neckFlowBudget < 1) break;
+                        sand[di] = 1; clr[di] = clr[i]; sand[i] = 0; mv[di] = 1;
+                        if (isGate) neckFlowBudget -= 1;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    function flipGrid() {
+        const n = gW * gH;
+        const ts = new Uint8Array(n), tc = new Uint8Array(n);
+        for (let r = 0; r < gH; r++) {
+            const mr = gH - 1 - r;
+            for (let c = 0; c < gW; c++) {
+                const si = r * gW + c, di = mr * gW + c;
+                if (sand[si] && bnd[di]) { ts[di] = 1; tc[di] = clr[si]; }
+            }
+        }
+        sand.set(ts); clr.set(tc);
+    }
+
+    function isDone() {
+        for (let r = 0; r <= cRow; r++)
+            for (let c = 0; c < gW; c++)
+                if (sand[r * gW + c]) return false;
+        return true;
+    }
+
+    // --- State Machine ---
+    function doFlip() {
+        if (state === 'IDLE') {
+            flipGrid(); state = 'RUNNING'; t0 = Date.now();
+            neckFlowBudget = 0;
+        } else if (state === 'RUNNING') {
+            flipGrid(); state = 'IDLE';
+        }
+    }
+
+    // --- Drawing ---
+    const OX = () => W / 2 - (gW * CELL) / 2;
+    const OY = () => H / 2 - (gH * CELL) / 2;
+
+    function hgPath() {
+        const x = OX(), y = OY(), w = gW * CELL, h = gH * CELL;
+        const cy = y + h / 2;
+        const nw = (neckHW * 2 + 1) * CELL;
+        const nl = W / 2 - nw / 2, nr = W / 2 + nw / 2;
+        ctx.beginPath();
+        ctx.moveTo(x, y); ctx.lineTo(x + w, y);
+        ctx.bezierCurveTo(x + w, y + h * .38, nr, cy - h * .06, nr, cy);
+        ctx.bezierCurveTo(nr, cy + h * .06, x + w, y + h * .62, x + w, y + h);
+        ctx.lineTo(x, y + h);
+        ctx.bezierCurveTo(x, y + h * .62, nl, cy + h * .06, nl, cy);
+        ctx.bezierCurveTo(nl, cy - h * .06, x, y + h * .38, x, y);
+        ctx.closePath();
+    }
+
+    function rRect(x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath(); ctx.fill();
+    }
+
+    function drawBg() {
+        const g = ctx.createLinearGradient(0, 0, 0, H);
+        g.addColorStop(0, '#07071a'); g.addColorStop(.5, '#0c0c20'); g.addColorStop(1, '#07071a');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+        const t = Date.now() * .001;
+        for (const s of stars) {
+            ctx.globalAlpha = s.a * (.4 + .6 * Math.sin(t * s.s + s.x));
+            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 6.283); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    function drawGlass() {
+        ctx.save();
+        ctx.shadowColor = 'rgba(60,140,255,.06)'; ctx.shadowBlur = 50;
+        hgPath(); ctx.fillStyle = 'rgba(140,190,255,.03)'; ctx.fill();
+        ctx.restore();
+        hgPath();
+        const g = ctx.createLinearGradient(0, OY(), 0, OY() + gH * CELL);
+        g.addColorStop(0, 'rgba(180,210,255,.06)');
+        g.addColorStop(.5, 'rgba(180,210,255,.015)');
+        g.addColorStop(1, 'rgba(180,210,255,.06)');
+        ctx.fillStyle = g; ctx.fill();
+    }
+
+    function drawSand() {
+        const x0 = OX(), y0 = OY();
+        ctx.save(); hgPath(); ctx.clip();
+        const bins = {};
+        for (let r = 0; r < gH; r++)
+            for (let c = 0; c < gW; c++) {
+                const i = r * gW + c;
+                if (!sand[i]) continue;
+                (bins[clr[i]] || (bins[clr[i]] = [])).push(c, r);
+            }
+        for (const ci in bins) {
+            ctx.fillStyle = COLORS[ci]; ctx.beginPath();
+            const a = bins[ci];
+            for (let j = 0; j < a.length; j += 2)
+                ctx.rect(x0 + a[j] * CELL, y0 + a[j + 1] * CELL, CELL, CELL);
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    function drawFrame() {
+        const x0 = OX(), y0 = OY(), w = gW * CELL, h = gH * CELL;
+        const fh = 10, ex = 6;
+        for (const fy of [y0 - fh, y0 + h]) {
+            const g = ctx.createLinearGradient(0, fy, 0, fy + fh);
+            g.addColorStop(0, '#6B4E37'); g.addColorStop(.4, '#8B6B50');
+            g.addColorStop(.7, '#7A5B42'); g.addColorStop(1, '#5A3E28');
+            ctx.fillStyle = g; rRect(x0 - ex, fy, w + ex * 2, fh, 3);
+            ctx.fillStyle = 'rgba(255,255,255,.07)';
+            ctx.fillRect(x0 - ex + 2, fy + 1.5, w + ex * 2 - 4, 1.5);
+        }
+        hgPath();
+        ctx.strokeStyle = 'rgba(200,215,235,.16)'; ctx.lineWidth = 1.2; ctx.stroke();
+    }
+
+    function makeSparks() {
+        sparks = [];
+        const x0 = OX(), y0 = OY();
+        for (let i = 0; i < 24; i++) {
+            const r = cRow + 3 + Math.random() * (gH - cRow - 6);
+            sparks.push({
+                x: x0 + (cCol + (Math.random() - .5) * hw2(Math.round(r)) * 1.4) * CELL,
+                y: y0 + r * CELL,
+                sz: 1.5 + Math.random() * 3, a: .6 + Math.random() * .4,
+                v: .5 + Math.random() * 2, p: Math.random() * 6.283,
+                c: Math.random() < .3 ? '#FFF5D4' : '#FFD700'
+            });
+        }
+    }
+
+    function drawSparks(t) {
+        for (const s of sparks) {
+            const a = s.a * (.3 + .7 * Math.max(0, Math.sin(t * .004 * s.v + s.p)));
+            if (a < .02) continue;
+            ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = s.c;
+            ctx.translate(s.x, s.y); ctx.rotate(t * .001 * s.v);
+            const z = s.sz;
+            ctx.beginPath();
+            ctx.moveTo(0, -z); ctx.lineTo(z * .25, -z * .25);
+            ctx.lineTo(z, 0); ctx.lineTo(z * .25, z * .25);
+            ctx.lineTo(0, z); ctx.lineTo(-z * .25, z * .25);
+            ctx.lineTo(-z, 0); ctx.lineTo(-z * .25, -z * .25);
+            ctx.closePath(); ctx.fill(); ctx.restore();
+        }
+    }
+
+    function drawUI() {
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const lbl = state === 'IDLE' ? '대기 중' : state === 'RUNNING' ? '진행 중' : '완료';
+        ctx.fillStyle = state === 'COMPLETED' ? 'rgba(255,215,0,.75)' : 'rgba(255,255,255,.35)';
+        ctx.font = '600 12px -apple-system,BlinkMacSystemFont,sans-serif';
+        ctx.fillText(lbl, W / 2, 44);
+        if (state === 'RUNNING' || state === 'COMPLETED') {
+            const e = ((state === 'COMPLETED' ? tDone : Date.now()) - t0) / 1000;
+            ctx.fillStyle = 'rgba(255,255,255,.6)';
+            ctx.font = '300 24px ui-monospace,monospace';
+            ctx.fillText(`${(e / 60) | 0}:${String((e % 60) | 0).padStart(2, '0')}`, W / 2, 76);
+        }
+        ctx.fillStyle = 'rgba(255,255,255,.18)';
+        ctx.font = '400 11px -apple-system,BlinkMacSystemFont,sans-serif';
+        ctx.fillText(
+            hasOrient ? '폰을 뒤집거나 화면을 탭하세요' : '화면을 탭하여 뒤집기',
+            W / 2, H - 36
+        );
+    }
+
+    // --- Events ---
+    canvas.addEventListener('pointerdown', () => {
+        if (state !== 'COMPLETED') doFlip();
+    });
+
+    function onOri(e) {
+        if (e.beta == null) return;
+        hasOrient = true;
+        const f = e.beta < -30;
+        if (f !== prevFlip) {
+            prevFlip = f;
+            if (f && state === 'IDLE') doFlip();
+            else if (!f && state === 'RUNNING') doFlip();
+        }
+    }
+
+    if (window.DeviceOrientationEvent) {
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            canvas.addEventListener('pointerdown', function rp() {
+                DeviceOrientationEvent.requestPermission()
+                    .then(r => { if (r === 'granted') window.addEventListener('deviceorientation', onOri); })
+                    .catch(() => {});
+                canvas.removeEventListener('pointerdown', rp);
+            });
+        } else {
+            window.addEventListener('deviceorientation', onOri);
+        }
+    }
+
+    window.addEventListener('resize', () => { init(); });
+    try { screen.orientation?.lock?.('portrait').catch(() => {}); } catch (e) {}
+
+    // --- Main Loop ---
+    function loop(t) {
+        fc++;
+        drawBg();
+
+        if (state === 'RUNNING') {
+            neckFlowBudget = Math.min(neckFlowBudget + neckFlowPerFrame, 3);
+            for (let i = 0; i < STEPS; i++) simStep();
+            if (fc % 20 === 0 && isDone()) {
+                state = 'COMPLETED'; tDone = Date.now(); makeSparks();
+                try { navigator.vibrate?.(200); } catch (e) {}
+            }
+        }
+
+        if (state === 'COMPLETED' && Date.now() - tDone > DONE_DELAY) {
+            state = 'IDLE'; fillBottom(); sparks = [];
+        }
+
+        drawGlass(); drawSand(); drawFrame();
+        if (state === 'COMPLETED') drawSparks(t);
+        drawUI();
+        requestAnimationFrame(loop);
+    }
+
+    init();
+    requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
