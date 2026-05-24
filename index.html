@@ -74,6 +74,7 @@ import * as THREE from 'https://unpkg.com/three@0.164.1/build/three.module.js';
 // ── Config ──
 const HG_H = 4, MAX_R = 0.82, NECK_R = 0.12;
 const CELL = 1, STEPS = 3, DURATION = 60, DONE_DELAY = 3000;
+const SLIDE_MAX = 3; // 표면 모래가 한 step에 미끄러질 수 있는 최대 셀 수 → 안식각 ↓ (완만한 더미)
 const SAND_HEX = [0xF0A8E8,0xE890DC,0xD478C8,0xC060B8,0xE898D8,0xF0B8E8,0xD888D0,0xB860B8];
 const SAND_COL = SAND_HEX.map(h => new THREE.Color(h));
 const P_SIZE = 0.010;
@@ -451,21 +452,32 @@ function simStep() {
             const i = r * gW + c;
             if (!sand[i] || mv[i]) continue;
             const isGate = (r === cRow);
+            if (isGate && neckFlowBudget < 1) continue;
             const b = i + gW;
+            // 1) 직하 (똑바로 아래로)
             if (bnd[b] && !sand[b]) {
-                if (isGate && neckFlowBudget < 1) continue;
                 sand[b] = 1; clr[b] = clr[i]; sand[i] = 0; mv[b] = 1;
                 if (isGate) neckFlowBudget -= 1;
                 continue;
             }
+            // 2) 사선 슬라이드 — 표면(위가 빈) 모래는 멀리까지 굴러 안식각을 낮춤.
+            //    떨어지는 stream(위에 모래가 이어진 셀)은 1칸만 → 흐름이 퍼지지 않음
+            const isPileTop = r === 0 || !sand[i - gW];
+            const slideMax = isPileTop ? SLIDE_MAX : 1;
             const d1 = Math.random() < 0.5 ? 1 : -1;
-            for (const d of [d1, -d1]) {
-                const nc = c + d;
-                if (nc < 0 || nc >= gW) continue;
-                const di = (r + 1) * gW + nc;
-                if (bnd[di] && !sand[di]) {
-                    if (isGate && neckFlowBudget < 1) break;
-                    sand[di] = 1; clr[di] = clr[i]; sand[i] = 0; mv[di] = 1;
+            for (const dirSign of [d1, -d1]) {
+                let bestDi = -1;
+                for (let step = 1; step <= slideMax; step++) {
+                    const nc = c + dirSign * step;
+                    if (nc < 0 || nc >= gW) break;
+                    // 같은 row의 경로 셀이 막혀있으면 더 못 굴러감
+                    if (sand[r * gW + nc]) break;
+                    const di = (r + 1) * gW + nc;
+                    if (!bnd[di]) break;
+                    if (!sand[di]) bestDi = di; // 가능한 가장 먼 착지 지점을 채택
+                }
+                if (bestDi >= 0) {
+                    sand[bestDi] = 1; clr[bestDi] = clr[i]; sand[i] = 0; mv[bestDi] = 1;
                     if (isGate) neckFlowBudget -= 1;
                     break;
                 }
