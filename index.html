@@ -76,7 +76,8 @@ const HG_H = 4, MAX_R = 0.82, NECK_R = 0.12;
 const CELL = 1, STEPS = 3, DURATION = 60, DONE_DELAY = 3000;
 const SAND_HEX = [0xF0A8E8,0xE890DC,0xD478C8,0xC060B8,0xE898D8,0xF0B8E8,0xD888D0,0xB860B8];
 const SAND_COL = SAND_HEX.map(h => new THREE.Color(h));
-const P_SIZE = 0.008;
+const P_SIZE = 0.010;
+const PARTICLES_PER_CELL = 5; // 그리드 셀 하나당 jitter된 입자 N개 → 진짜 모래처럼 빽빽한 느낌
 
 // ── State ──
 let state = 'IDLE', W, H, dpr;
@@ -324,22 +325,33 @@ for (let r = 0; r < gH; r++) {
         bnd[r * gW + c] = (inBulb && Math.abs(c - cCol) <= w) ? 1 : 0;
 }
 
-// Pre-compute 3D positions for each grid cell
-particlePos = new Float32Array(n * 3);
+// Pre-compute 3D positions for each grid cell — PARTICLES_PER_CELL particles per cell with jitter
+particlePos = new Float32Array(n * PARTICLES_PER_CELL * 3);
+const yStep = HG_H / (gH - 1);
 for (let r = 0; r < gH; r++) {
-    const y = (0.5 - r / (gH - 1)) * HG_H;
+    const yCenter = (0.5 - r / (gH - 1)) * HG_H;
     const r3d = radius3D(r) * 0.82;
     const hw = hw2(r) || 1;
+    const xStep = r3d / hw;
     for (let c = 0; c < gW; c++) {
-        const idx = (r * gW + c) * 3;
         const offset = c - cCol;
-        const x = (offset / hw) * r3d;
-        const zMax = Math.sqrt(Math.max(0, r3d * r3d - x * x));
-        const hash = Math.sin(r * 127.1 + c * 311.7) * 43758.5453;
-        const zNorm = (hash - Math.floor(hash)) * 2 - 1;
-        particlePos[idx] = x;
-        particlePos[idx + 1] = y;
-        particlePos[idx + 2] = zNorm * zMax;
+        const xCenter = (offset / hw) * r3d;
+        for (let p = 0; p < PARTICLES_PER_CELL; p++) {
+            const idx = ((r * gW + c) * PARTICLES_PER_CELL + p) * 3;
+            // 3 decorrelated hashes for x/y/z jitter
+            const h1 = Math.sin(r * 127.1 + c * 311.7 + p * 71.3) * 43758.5453;
+            const h2 = Math.sin(r * 71.3 + c * 113.5 + p * 217.7) * 43758.5453;
+            const h3 = Math.sin(r * 213.9 + c * 79.1 + p * 309.5) * 43758.5453;
+            const jx = ((h1 - Math.floor(h1)) - 0.5) * xStep * 0.9;
+            const jy = ((h2 - Math.floor(h2)) - 0.5) * yStep * 0.9;
+            const zN = (h3 - Math.floor(h3)) * 2 - 1;
+            const xPos = xCenter + jx;
+            const yPos = yCenter + jy;
+            const zMax = Math.sqrt(Math.max(0, r3d * r3d - xPos * xPos));
+            particlePos[idx] = xPos;
+            particlePos[idx + 1] = yPos;
+            particlePos[idx + 2] = zN * zMax;
+        }
     }
 }
 
@@ -363,7 +375,7 @@ const sandMat = new THREE.MeshPhysicalMaterial({
     sheen: 0.6, sheenColor: new THREE.Color(0xffd8ec),
     sheenRoughness: 0.7
 });
-const sandMesh = new THREE.InstancedMesh(sandGeo, sandMat, totalSandCount + 500);
+const sandMesh = new THREE.InstancedMesh(sandGeo, sandMat, (totalSandCount + 500) * PARTICLES_PER_CELL);
 sandMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 hgGroup.add(sandMesh);
 
@@ -376,12 +388,16 @@ function updateSandMesh() {
     let count = 0;
     for (let i = 0; i < n; i++) {
         if (!sand[i]) continue;
-        const pi = i * 3;
-        _pos.set(particlePos[pi], particlePos[pi + 1], particlePos[pi + 2]);
-        _mat4.compose(_pos, _quat, _scl);
-        sandMesh.setMatrixAt(count, _mat4);
-        sandMesh.setColorAt(count, SAND_COL[clr[i]]);
-        count++;
+        const color = SAND_COL[clr[i]];
+        const base = i * PARTICLES_PER_CELL * 3;
+        for (let p = 0; p < PARTICLES_PER_CELL; p++) {
+            const pi = base + p * 3;
+            _pos.set(particlePos[pi], particlePos[pi + 1], particlePos[pi + 2]);
+            _mat4.compose(_pos, _quat, _scl);
+            sandMesh.setMatrixAt(count, _mat4);
+            sandMesh.setColorAt(count, color);
+            count++;
+        }
     }
     sandMesh.count = count;
     sandMesh.instanceMatrix.needsUpdate = true;
