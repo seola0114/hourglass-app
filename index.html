@@ -77,8 +77,8 @@ const CELL = 1, STEPS = 3, DURATION = 60, DONE_DELAY = 3000;
 const SLIDE_MAX = 3; // 표면 모래가 한 step에 미끄러질 수 있는 최대 셀 수 → 안식각 ↓ (완만한 더미)
 const SAND_HEX = [0xF0A8E8,0xE890DC,0xD478C8,0xC060B8,0xE898D8,0xF0B8E8,0xD888D0,0xB860B8];
 const SAND_COL = SAND_HEX.map(h => new THREE.Color(h));
-const P_SIZE = 0.010;
-const PARTICLES_PER_CELL = 5; // 그리드 셀 하나당 jitter된 입자 N개 → 진짜 모래처럼 빽빽한 느낌
+const P_SIZE = 0.0055;
+const PARTICLES_PER_CELL = 10; // 셀당 입자 N개 → 미세한 가루처럼 연속적인 흐름
 
 // ── State ──
 let state = 'IDLE', W, H, dpr;
