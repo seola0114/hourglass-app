@@ -9,10 +9,30 @@
         html, body {
             width: 100%; height: 100%; height: 100dvh;
             overflow: hidden; position: fixed; top: 0; left: 0;
-            background: #060612;
+            background:
+                radial-gradient(ellipse at 15% 25%, rgba(255,200,255,0.35) 0%, transparent 28%),
+                radial-gradient(ellipse at 85% 75%, rgba(200,255,240,0.28) 0%, transparent 30%),
+                radial-gradient(circle at 70% 20%, rgba(255,230,180,0.22) 0%, transparent 22%),
+                linear-gradient(180deg, #c5b0dc 0%, #d8b8dc 35%, #ebc4d4 65%, #f3d0d4 100%);
             touch-action: none; user-select: none;
             -webkit-user-select: none;
             -webkit-tap-highlight-color: transparent;
+        }
+        body::before {
+            content: ''; position: fixed; inset: 0; pointer-events: none;
+            background:
+                linear-gradient(115deg, transparent 35%, rgba(255,180,220,0.18) 42%, rgba(180,220,255,0.18) 48%, rgba(200,255,200,0.15) 54%, transparent 62%),
+                linear-gradient(60deg, transparent 30%, rgba(255,200,180,0.12) 38%, rgba(220,180,255,0.14) 45%, transparent 55%);
+            mix-blend-mode: screen;
+        }
+        body::after {
+            content: ''; position: fixed; inset: 0; pointer-events: none;
+            background-image:
+                radial-gradient(circle, rgba(255,255,255,0.9) 1px, transparent 2px),
+                radial-gradient(circle, rgba(255,220,255,0.7) 1px, transparent 2px);
+            background-size: 320px 320px, 220px 220px;
+            background-position: 30px 60px, 180px 200px;
+            opacity: 0.5;
         }
         canvas { display: block; position: fixed; top: 0; left: 0; touch-action: none; }
         #ui {
@@ -22,20 +42,23 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
         #status {
-            margin-top: 40px; color: rgba(255,255,255,0.35);
+            margin-top: 40px; color: rgba(120,90,140,0.55);
             font-size: 12px; font-weight: 600; letter-spacing: 2px;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.4);
         }
-        #status.done { color: rgba(255,215,0,0.75); }
+        #status.done { color: rgba(220,100,160,0.85); }
         #timer {
-            margin-top: 8px; color: rgba(255,255,255,0.6);
+            margin-top: 8px; color: rgba(100,80,130,0.7);
             font-size: 24px; font-weight: 300;
             font-family: ui-monospace, 'SF Mono', monospace;
             min-height: 30px;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.4);
         }
         #hint {
             position: fixed; bottom: 32px; left: 0; width: 100%;
-            text-align: center; color: rgba(255,255,255,0.18);
+            text-align: center; color: rgba(120,90,140,0.4);
             font-size: 11px;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.3);
         }
     </style>
 </head>
@@ -51,9 +74,9 @@ import * as THREE from 'https://unpkg.com/three@0.164.1/build/three.module.js';
 // ── Config ──
 const HG_H = 4, MAX_R = 0.82, NECK_R = 0.12;
 const CELL = 1, STEPS = 3, DURATION = 60, DONE_DELAY = 3000;
-const SAND_HEX = [0xE8A624,0xD4941A,0xCC8820,0xDEA520,0xF0B418,0xD4A020,0xC89030,0xE0AA28];
+const SAND_HEX = [0xF0A8E8,0xE890DC,0xD478C8,0xC060B8,0xE898D8,0xF0B8E8,0xD888D0,0xB860B8];
 const SAND_COL = SAND_HEX.map(h => new THREE.Color(h));
-const P_SIZE = 0.038;
+const P_SIZE = 0.001;
 
 // ── State ──
 let state = 'IDLE', W, H, dpr;
@@ -76,65 +99,95 @@ H = window.visualViewport?.height || window.innerHeight;
 dpr = Math.min(window.devicePixelRatio || 1, 2);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x060612);
-scene.fog = new THREE.FogExp2(0x060612, 0.06);
+scene.background = null;
 
-const camera = new THREE.PerspectiveCamera(32, W / H, 0.1, 100);
-camera.position.set(0.6, 0.5, 6);
+const camera = new THREE.PerspectiveCamera(24, W / H, 0.1, 100);
+camera.position.set(0.15, 0.15, 13);
 camera.lookAt(0, 0, 0);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(W, H);
 renderer.setPixelRatio(dpr);
+renderer.setClearColor(0x000000, 0);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
+renderer.toneMappingExposure = 1.15;
 document.body.appendChild(renderer.domElement);
 
 // ── Lights ──
-scene.add(new THREE.AmbientLight(0x303050, 0.8));
-const dirLight = new THREE.DirectionalLight(0xffeedd, 1.8);
+scene.add(new THREE.AmbientLight(0xf0e0f0, 1.2));
+const dirLight = new THREE.DirectionalLight(0xfff0f8, 1.6);
 dirLight.position.set(3, 4, 5);
 scene.add(dirLight);
-const rimLight = new THREE.DirectionalLight(0x4488cc, 0.6);
+const rimLight = new THREE.DirectionalLight(0xa8c8f0, 0.9);
 rimLight.position.set(-3, -1, -3);
 scene.add(rimLight);
-const warmLight = new THREE.PointLight(0xff8833, 0.4, 10);
+const warmLight = new THREE.PointLight(0xffb8d8, 0.6, 10);
 warmLight.position.set(0, -1, 3);
 scene.add(warmLight);
+const topLight = new THREE.PointLight(0xc0d0ff, 0.5, 10);
+topLight.position.set(0, 3, 2);
+scene.add(topLight);
 
 // ── Hourglass Group ──
 const hgGroup = new THREE.Group();
 scene.add(hgGroup);
 
-// Glass profile
+// ── Profile (shared by glass mesh and sand simulation) ──
+// d in [0, 1]: 0 = neck (center), 1 = top/bottom end
+function bulgeRadius(d) {
+    const keys = [
+        [0.00, NECK_R],
+        [0.04, NECK_R * 1.2],
+        [0.12, NECK_R * 2.6],
+        [0.30, MAX_R * 0.70],
+        [0.55, MAX_R * 0.97],
+        [0.75, MAX_R],
+        [0.90, MAX_R * 0.86],
+        [1.00, MAX_R * 0.42]
+    ];
+    for (let i = 0; i < keys.length - 1; i++) {
+        if (d <= keys[i + 1][0]) {
+            const t = (d - keys[i][0]) / (keys[i + 1][0] - keys[i][0]);
+            const st = t * t * (3 - 2 * t);
+            return keys[i][1] + (keys[i + 1][1] - keys[i][1]) * st;
+        }
+    }
+    return keys[keys.length - 1][1];
+}
+
 function glassProfile() {
     const pts = [];
-    for (let i = 0; i <= 80; i++) {
-        const t = i / 80;
+    for (let i = 0; i <= 140; i++) {
+        const t = i / 140;
         const d = Math.abs(t - 0.5) * 2;
-        const r = NECK_R + (MAX_R - NECK_R) * Math.pow(d, 1.6);
+        const r = bulgeRadius(d);
         pts.push(new THREE.Vector2(r, (t - 0.5) * HG_H));
     }
     return pts;
 }
 
 // Glass body
-const glassGeo = new THREE.LatheGeometry(glassProfile(), 48);
+const glassGeo = new THREE.LatheGeometry(glassProfile(), 64);
 const glassMat = new THREE.MeshPhysicalMaterial({
-    color: 0x99bbdd,
-    transparent: true, opacity: 0.13,
-    roughness: 0.02, metalness: 0.05,
+    color: 0xffffff,
+    transparent: true, opacity: 0.22,
+    roughness: 0.0, metalness: 0.0,
+    transmission: 0.92, thickness: 0.5,
+    clearcoat: 1.0, clearcoatRoughness: 0.02,
+    iridescence: 0.85, iridescenceIOR: 1.5,
+    iridescenceThicknessRange: [200, 700],
+    ior: 1.45, reflectivity: 0.7,
     side: THREE.DoubleSide, depthWrite: false
 });
 hgGroup.add(new THREE.Mesh(glassGeo, glassMat));
 
-// Glass rim glow
+// Glass rim glow (soft pink-blue halo)
 const rimMat = new THREE.MeshBasicMaterial({
-    color: 0x5599bb, transparent: true, opacity: 0.06,
+    color: 0xffc8e0, transparent: true, opacity: 0.08,
     side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false
 });
 const rimMesh = new THREE.Mesh(glassGeo.clone(), rimMat);
-rimMesh.scale.multiplyScalar(1.015);
+rimMesh.scale.multiplyScalar(1.02);
 hgGroup.add(rimMesh);
 
 // Glass specular highlight line
@@ -142,42 +195,103 @@ const highlightGeo = new THREE.LatheGeometry(
     glassProfile().map(p => new THREE.Vector2(p.x * 1.005, p.y)), 4, 0, 0.15
 );
 const highlightMat = new THREE.MeshBasicMaterial({
-    color: 0xffffff, transparent: true, opacity: 0.08,
+    color: 0xffffff, transparent: true, opacity: 0.18,
     side: THREE.DoubleSide, depthWrite: false
 });
 hgGroup.add(new THREE.Mesh(highlightGeo, highlightMat));
 
-// Frame bars
-const frameMat = new THREE.MeshStandardMaterial({ color: 0x6B4E37, roughness: 0.55, metalness: 0.25 });
-const frameHighMat = new THREE.MeshStandardMaterial({ color: 0x8B6B50, roughness: 0.5, metalness: 0.2 });
+// Frame: rose-gold iridescent metal (caps, posts, beads, finial)
+const frameMat = new THREE.MeshPhysicalMaterial({
+    color: 0xeab8c4,
+    metalness: 1.0, roughness: 0.18,
+    clearcoat: 1.0, clearcoatRoughness: 0.08,
+    iridescence: 0.7, iridescenceIOR: 1.4,
+    iridescenceThicknessRange: [120, 520]
+});
+const FRAME_R = MAX_R + 0.18;
+const CAP_THK = 0.16;
+
+// Top & bottom plates
 for (const ySign of [-1, 1]) {
-    const y = ySign * (HG_H / 2 + 0.06);
-    const frame = new THREE.Mesh(
-        new THREE.CylinderGeometry(MAX_R + 0.06, MAX_R + 0.06, 0.12, 32),
+    const y = ySign * (HG_H / 2 + CAP_THK / 2 + 0.02);
+    const plate = new THREE.Mesh(
+        new THREE.CylinderGeometry(FRAME_R, FRAME_R * 0.95, CAP_THK, 56),
         frameMat
     );
-    frame.position.y = y;
-    hgGroup.add(frame);
-    // Frame edge highlight
-    const edge = new THREE.Mesh(
-        new THREE.TorusGeometry(MAX_R + 0.06, 0.015, 8, 32),
-        frameHighMat
+    plate.position.y = y;
+    hgGroup.add(plate);
+    // rounded outer rim
+    const rim = new THREE.Mesh(
+        new THREE.TorusGeometry(FRAME_R, 0.035, 14, 56),
+        frameMat
     );
-    edge.position.y = y + ySign * 0.055;
-    edge.rotation.x = Math.PI / 2;
-    hgGroup.add(edge);
+    rim.position.y = y + ySign * (CAP_THK / 2 - 0.01);
+    rim.rotation.x = Math.PI / 2;
+    hgGroup.add(rim);
 }
 
-// Posts
-const postMat = new THREE.MeshStandardMaterial({ color: 0x7A5B42, roughness: 0.5, metalness: 0.3 });
+// 4 vertical posts with mid-bead
+const POST_R = 0.045;
+const POST_RING_R = FRAME_R * 0.92;
+const POST_LEN = HG_H + CAP_THK * 2 + 0.04;
 for (let i = 0; i < 4; i++) {
     const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+    const px = Math.cos(a) * POST_RING_R;
+    const pz = Math.sin(a) * POST_RING_R;
+
     const post = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.035, 0.035, HG_H + 0.24, 8),
-        postMat
+        new THREE.CylinderGeometry(POST_R, POST_R, POST_LEN, 20),
+        frameMat
     );
-    post.position.set(Math.cos(a) * (MAX_R + 0.02), 0, Math.sin(a) * (MAX_R + 0.02));
+    post.position.set(px, 0, pz);
     hgGroup.add(post);
+
+    // Bead at vertical mid-point of each post
+    const bead = new THREE.Mesh(
+        new THREE.SphereGeometry(POST_R * 2.4, 24, 20),
+        frameMat
+    );
+    bead.position.set(px, 0, pz);
+    hgGroup.add(bead);
+
+    // Small spherical foot below bottom plate
+    const foot = new THREE.Mesh(
+        new THREE.SphereGeometry(POST_R * 1.6, 20, 16),
+        frameMat
+    );
+    foot.position.set(px, -(HG_H / 2 + CAP_THK + 0.05), pz);
+    hgGroup.add(foot);
+}
+
+// Top finial: central small bead + 4 decorative curls
+const finialY = HG_H / 2 + CAP_THK + 0.08;
+const finial = new THREE.Mesh(
+    new THREE.SphereGeometry(0.07, 24, 20),
+    frameMat
+);
+finial.position.y = finialY + 0.08;
+hgGroup.add(finial);
+
+// Tiny stem for the finial
+const stem = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.018, 0.018, 0.08, 12),
+    frameMat
+);
+stem.position.y = finialY + 0.03;
+hgGroup.add(stem);
+
+// 4 curls (half-torus) radiating from the top plate
+const curlGeo = new THREE.TorusGeometry(0.09, 0.018, 10, 24, Math.PI);
+for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+    const curl = new THREE.Mesh(curlGeo, frameMat);
+    const cx = Math.cos(a) * 0.16;
+    const cz = Math.sin(a) * 0.16;
+    curl.position.set(cx, finialY, cz);
+    // orient curls so the open side faces inward & arcs upward
+    curl.rotation.y = -a + Math.PI / 2;
+    curl.rotation.x = Math.PI / 2;
+    hgGroup.add(curl);
 }
 
 // ── Sand Grid Init ──
@@ -193,11 +307,13 @@ colArr = Array.from({ length: gW }, (_, i) => i);
 
 function hw2(row) {
     const d = Math.abs(row / (gH - 1) - 0.5) * 2;
-    return Math.floor(neckHW + (maxHW - neckHW) * Math.pow(d, 1.6));
+    const r = bulgeRadius(d);
+    const norm = (r - NECK_R) / (MAX_R - NECK_R);
+    return Math.max(neckHW, Math.floor(neckHW + (maxHW - neckHW) * norm));
 }
 function radius3D(row) {
     const d = Math.abs(row / (gH - 1) - 0.5) * 2;
-    return NECK_R + (MAX_R - NECK_R) * Math.pow(d, 1.6);
+    return bulgeRadius(d);
 }
 
 for (let r = 0; r < gH; r++) {
@@ -239,7 +355,11 @@ neckFlowPerFrame = totalSandCount / (DURATION * 60);
 
 // ── Sand InstancedMesh ──
 const sandGeo = new THREE.IcosahedronGeometry(P_SIZE, 0);
-const sandMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+const sandMat = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff, roughness: 0.2, metalness: 0.5,
+    clearcoat: 0.8, clearcoatRoughness: 0.15,
+    iridescence: 0.4, iridescenceIOR: 1.3
+});
 const sandMesh = new THREE.InstancedMesh(sandGeo, sandMat, totalSandCount + 500);
 sandMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 hgGroup.add(sandMesh);
@@ -274,7 +394,7 @@ const sparkSizes = new Float32Array(SPARK_N);
 sparkGeo2.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3));
 sparkGeo2.setAttribute('size', new THREE.BufferAttribute(sparkSizes, 1));
 const sparkMat2 = new THREE.PointsMaterial({
-    color: 0xFFD700, size: 0.08, transparent: true, opacity: 0,
+    color: 0xffc8e8, size: 0.09, transparent: true, opacity: 0,
     blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
 });
 const sparkPoints = new THREE.Points(sparkGeo2, sparkMat2);
@@ -449,10 +569,10 @@ function animate(time) {
         const elapsed = Date.now() - tDone;
         const pulse = Math.sin(elapsed * 0.006) * 0.4 + 0.5;
         sparkMat2.opacity = pulse;
-        warmLight.intensity = 0.4 + pulse * 0.4;
+        warmLight.intensity = 0.6 + pulse * 0.5;
         if (elapsed > DONE_DELAY) {
             state = 'IDLE'; fillBottom(); sparkMat2.opacity = 0;
-            warmLight.intensity = 0.4;
+            warmLight.intensity = 0.6;
             updateUI();
         }
     } else {
@@ -472,8 +592,8 @@ function animate(time) {
 
     // Subtle camera sway
     const st = time * 0.0002;
-    camera.position.x = 0.6 + Math.sin(st) * 0.15;
-    camera.position.y = 0.5 + Math.cos(st * 0.7) * 0.08;
+    camera.position.x = 0.15 + Math.sin(st) * 0.06;
+    camera.position.y = 0.15 + Math.cos(st * 0.7) * 0.04;
     camera.lookAt(0, 0, 0);
 
     renderer.render(scene, camera);
