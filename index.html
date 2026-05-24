@@ -76,7 +76,7 @@ const HG_H = 4, MAX_R = 0.82, NECK_R = 0.12;
 const CELL = 1, STEPS = 3, DURATION = 60, DONE_DELAY = 3000;
 const SAND_HEX = [0xF0A8E8,0xE890DC,0xD478C8,0xC060B8,0xE898D8,0xF0B8E8,0xD888D0,0xB860B8];
 const SAND_COL = SAND_HEX.map(h => new THREE.Color(h));
-const P_SIZE = 0.001;
+const P_SIZE = 0.008;
 
 // ── State ──
 let state = 'IDLE', W, H, dpr;
@@ -318,8 +318,10 @@ function radius3D(row) {
 
 for (let r = 0; r < gH; r++) {
     const w = hw2(r);
+    const d = Math.abs(r / (gH - 1) - 0.5) * 2;
+    const inBulb = d <= 0.82; // 어깨 외곽(좁아지는 rim) 제외 → 모래가 갇히는 자리 자체를 제거
     for (let c = 0; c < gW; c++)
-        bnd[r * gW + c] = Math.abs(c - cCol) <= w ? 1 : 0;
+        bnd[r * gW + c] = (inBulb && Math.abs(c - cCol) <= w) ? 1 : 0;
 }
 
 // Pre-compute 3D positions for each grid cell
@@ -343,11 +345,12 @@ for (let r = 0; r < gH; r++) {
 
 function fillBottom() {
     sand.fill(0);
-    for (let r = cRow + 2; r < gH; r++)
+    for (let r = cRow + 2; r < gH; r++) {
         for (let c = 0; c < gW; c++) {
             const i = r * gW + c;
             if (bnd[i]) { sand[i] = 1; clr[i] = (Math.random() * SAND_HEX.length) | 0; }
         }
+    }
 }
 fillBottom();
 totalSandCount = sand.reduce((a, b) => a + b, 0);
@@ -356,9 +359,9 @@ neckFlowPerFrame = totalSandCount / (DURATION * 60);
 // ── Sand InstancedMesh ──
 const sandGeo = new THREE.IcosahedronGeometry(P_SIZE, 0);
 const sandMat = new THREE.MeshPhysicalMaterial({
-    color: 0xffffff, roughness: 0.2, metalness: 0.5,
-    clearcoat: 0.8, clearcoatRoughness: 0.15,
-    iridescence: 0.4, iridescenceIOR: 1.3
+    color: 0xffffff, roughness: 0.85, metalness: 0.0,
+    sheen: 0.6, sheenColor: new THREE.Color(0xffd8ec),
+    sheenRoughness: 0.7
 });
 const sandMesh = new THREE.InstancedMesh(sandGeo, sandMat, totalSandCount + 500);
 sandMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -473,15 +476,18 @@ function isDone() {
 }
 
 // ── State Machine ──
+// 탭/뒤집기는 항상 grid를 뒤집고 RUNNING으로 (재)시작 → 어떤 자세에서든 모래가 흐름
 function doFlip() {
     if (flipAnim >= 0) return;
-    if (state === 'COMPLETED') return;
-    flipAnim = 0;
-    if (state === 'IDLE') {
-        state = 'RUNNING'; t0 = Date.now(); neckFlowBudget = 0;
-    } else if (state === 'RUNNING') {
-        state = 'IDLE';
+    if (state === 'COMPLETED') {
+        fillBottom();
+        sparkMat2.opacity = 0;
+        warmLight.intensity = 0.6;
     }
+    flipAnim = 0;
+    state = 'RUNNING';
+    t0 = Date.now();
+    neckFlowBudget = 0;
     updateUI();
 }
 
@@ -502,8 +508,8 @@ function onOri(e) {
     const f = e.beta < -30;
     if (f !== prevFlip) {
         prevFlip = f;
-        if (f && state === 'IDLE') doFlip();
-        else if (!f && state === 'RUNNING') doFlip();
+        // 폰을 거꾸로 뒤집은 순간에만 flip 트리거 (원위치 복귀로는 멈추지 않음)
+        if (f) doFlip();
     }
 }
 if (window.DeviceOrientationEvent) {
@@ -551,11 +557,12 @@ function animate(time) {
         }
     }
 
-    // Sand simulation
-    if (state === 'RUNNING' && flipAnim < 0) {
+    // Sand simulation — 항상 돌림 (어떤 자세에서든 흐르도록).
+    // 모래가 모두 바닥에 안착해 있으면 simStep은 아무것도 하지 않으므로 안전함.
+    if (flipAnim < 0) {
         neckFlowBudget = Math.min(neckFlowBudget + neckFlowPerFrame, 3);
         for (let i = 0; i < STEPS; i++) simStep();
-        if (fc % 20 === 0 && isDone()) {
+        if (state === 'RUNNING' && fc % 20 === 0 && isDone()) {
             state = 'COMPLETED'; tDone = Date.now();
             initSparks();
             sparkMat2.opacity = 0.9;
