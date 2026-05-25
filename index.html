@@ -302,17 +302,17 @@ function glassProfile() {
 const glassGeo = new THREE.LatheGeometry(glassProfile(), 128);
 const glassMat = new THREE.MeshPhysicalMaterial({
     color: 0xdffcff,
-    transparent: true, opacity: 0.12,
-    roughness: 0.18, metalness: 0.0,
-    transmission: 0.97, thickness: 0.4,
+    transparent: true, opacity: 0.22,
+    roughness: 0.05, metalness: 0.0,
+    transmission: 0.92, thickness: 0.5,
     attenuationColor: new THREE.Color(0xc6f3ff),
-    attenuationDistance: 4.4,
-    clearcoat: 0.0,
+    attenuationDistance: 4.0,
+    clearcoat: 0.55, clearcoatRoughness: 0.12,
     iridescence: 0.0,
-    ior: 1.42, reflectivity: 0.25,
-    envMapIntensity: 0.3,
-    specularIntensity: 0.22,
-    specularColor: new THREE.Color(0xdef0ff),
+    ior: 1.45, reflectivity: 0.55,
+    envMapIntensity: 0.7,
+    specularIntensity: 0.55,
+    specularColor: new THREE.Color(0xeaf6ff),
     side: THREE.DoubleSide, depthWrite: false
 });
 const glassMesh = new THREE.Mesh(glassGeo, glassMat);
