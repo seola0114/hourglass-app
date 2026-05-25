@@ -60,6 +60,30 @@
             font-size: 11px;
             text-shadow: 0 1px 2px rgba(255,255,255,0.3);
         }
+        #controls {
+            position: fixed; top: 24px; right: 14px; z-index: 20;
+            display: flex; flex-direction: column; gap: 10px;
+            padding: 10px 14px; border-radius: 14px;
+            background: rgba(255,255,255,0.22);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.3);
+            box-shadow: 0 2px 10px rgba(120,80,140,0.15);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: rgba(100,80,130,0.9);
+            font-size: 10px; letter-spacing: 0.5px;
+            pointer-events: auto; touch-action: auto;
+        }
+        .ctl { display: flex; flex-direction: column; gap: 3px; min-width: 120px; }
+        .ctl > span { display: flex; justify-content: space-between; font-weight: 500; }
+        .ctl em {
+            font-style: normal; color: rgba(160,100,170,0.95);
+            font-variant-numeric: tabular-nums;
+        }
+        .ctl input[type=range] {
+            width: 100%; height: 18px;
+            accent-color: rgba(180,120,180,0.85);
+            touch-action: auto;
+        }
     </style>
 </head>
 <body>
@@ -67,6 +91,16 @@
     <div id="status">대기 중</div>
     <div id="timer"></div>
     <div id="hint">화면을 탭하여 뒤집기</div>
+</div>
+<div id="controls">
+    <label class="ctl">
+        <span>모래량 <em id="sand-amount-val">55%</em></span>
+        <input type="range" id="sand-amount" min="0.15" max="1.0" step="0.05" value="0.55">
+    </label>
+    <label class="ctl">
+        <span>입자 크기 <em id="sand-size-val">1.0×</em></span>
+        <input type="range" id="sand-size" min="0.4" max="2.5" step="0.1" value="1.0">
+    </label>
 </div>
 <script type="module">
 import * as THREE from 'https://unpkg.com/three@0.164.1/build/three.module.js';
@@ -89,6 +123,7 @@ let totalSandCount = 0, neckFlowBudget = 0, neckFlowPerFrame = 0;
 let prevFlip = false, hasOrient = false;
 let flipAnim = -1, flipDur = 0.55;
 let particlePos;
+let sandFillRatio = 0.55, particleScale = 1.0;
 
 // ── UI refs ──
 const statusEl = document.getElementById('status');
@@ -358,9 +393,9 @@ for (let r = 0; r < gH; r++) {
 
 function fillBottom() {
     sand.fill(0);
-    // 1분 모래시계 분량 — 아래쪽 유리의 하단 절반만 채움
-    const startRow = cRow + Math.floor((gH - cRow) * 0.45);
-    for (let r = startRow; r < gH; r++) {
+    const bulbStart = cRow + 2, bulbEnd = gH - 1;
+    const startRow = Math.max(bulbStart, Math.floor(bulbEnd - (bulbEnd - bulbStart) * sandFillRatio));
+    for (let r = startRow; r <= bulbEnd; r++) {
         for (let c = 0; c < gW; c++) {
             const i = r * gW + c;
             if (bnd[i]) { sand[i] = 1; clr[i] = (Math.random() * SAND_HEX.length) | 0; }
@@ -371,6 +406,12 @@ fillBottom();
 totalSandCount = sand.reduce((a, b) => a + b, 0);
 neckFlowPerFrame = totalSandCount / (DURATION * 60);
 
+// InstancedMesh 용량은 슬라이더로 모래량을 최대까지 올렸을 때를 대비해 가득 채운 양으로 미리 산정
+let maxBulbCells = 0;
+for (let r = cRow + 2; r < gH; r++)
+    for (let c = 0; c < gW; c++)
+        if (bnd[r * gW + c]) maxBulbCells++;
+
 // ── Sand InstancedMesh ──
 const sandGeo = new THREE.IcosahedronGeometry(P_SIZE, 0);
 const sandMat = new THREE.MeshPhysicalMaterial({
@@ -378,7 +419,7 @@ const sandMat = new THREE.MeshPhysicalMaterial({
     sheen: 0.6, sheenColor: new THREE.Color(0xffd8ec),
     sheenRoughness: 0.7
 });
-const sandMesh = new THREE.InstancedMesh(sandGeo, sandMat, (totalSandCount + 500) * PARTICLES_PER_CELL);
+const sandMesh = new THREE.InstancedMesh(sandGeo, sandMat, (maxBulbCells + 100) * PARTICLES_PER_CELL);
 sandMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 hgGroup.add(sandMesh);
 
@@ -388,6 +429,7 @@ const _quat = new THREE.Quaternion();
 const _scl = new THREE.Vector3(1, 1, 1);
 
 function updateSandMesh() {
+    _scl.set(particleScale, particleScale, particleScale);
     let count = 0;
     for (let i = 0; i < n; i++) {
         if (!sand[i]) continue;
@@ -531,7 +573,39 @@ function updateUI() {
 // ── Events ──
 renderer.domElement.addEventListener('pointerdown', (e) => { e.preventDefault(); doFlip(); });
 renderer.domElement.addEventListener('touchstart', (e) => { e.preventDefault(); }, { passive: false });
-document.addEventListener('touchmove', (e) => { e.preventDefault(); }, { passive: false });
+document.addEventListener('touchmove', (e) => {
+    if (!e.target.closest?.('#controls')) e.preventDefault();
+}, { passive: false });
+
+// ── Sand controls ──
+const sandAmountSlider = document.getElementById('sand-amount');
+const sandAmountVal = document.getElementById('sand-amount-val');
+const sandSizeSlider = document.getElementById('sand-size');
+const sandSizeVal = document.getElementById('sand-size-val');
+const controlsEl = document.getElementById('controls');
+
+sandAmountSlider.addEventListener('input', () => {
+    sandFillRatio = parseFloat(sandAmountSlider.value);
+    sandAmountVal.textContent = Math.round(sandFillRatio * 100) + '%';
+    fillBottom();
+    totalSandCount = sand.reduce((a, b) => a + b, 0);
+    neckFlowPerFrame = totalSandCount / (DURATION * 60);
+    state = 'IDLE';
+    neckFlowBudget = 0;
+    sparkMat2.opacity = 0;
+    warmLight.intensity = 0.6;
+    timerEl.textContent = '';
+    updateUI();
+});
+
+sandSizeSlider.addEventListener('input', () => {
+    particleScale = parseFloat(sandSizeSlider.value);
+    sandSizeVal.textContent = particleScale.toFixed(1) + '×';
+});
+
+// 컨트롤 위 터치는 모래시계 뒤집기로 전파되지 않도록 차단
+controlsEl.addEventListener('pointerdown', (e) => e.stopPropagation());
+controlsEl.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
 
 function onOri(e) {
     if (e.beta == null) return;
