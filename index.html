@@ -60,6 +60,50 @@
             font-size: 11px;
             text-shadow: 0 1px 2px rgba(255,255,255,0.3);
         }
+        #panel {
+            position: fixed; top: 14px; right: 14px; z-index: 20;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: rgba(120,90,140,0.85);
+            display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+        }
+        #panel-toggle {
+            width: 38px; height: 38px; border: none; cursor: pointer;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.4);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            color: rgba(140,90,150,0.75); font-size: 18px;
+            box-shadow: 0 2px 12px rgba(180,140,180,0.25);
+            transition: transform 0.25s ease, background 0.2s ease;
+        }
+        #panel-toggle:hover { background: rgba(255,255,255,0.55); }
+        #panel.open #panel-toggle { transform: rotate(60deg); }
+        #panel-body {
+            padding: 16px 18px;
+            border-radius: 16px;
+            background: rgba(255,255,255,0.4);
+            backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+            box-shadow: 0 4px 24px rgba(180,140,180,0.25);
+            min-width: 220px;
+        }
+        #panel-body[hidden] { display: none; }
+        #panel-body label {
+            display: block; font-size: 11px; font-weight: 600;
+            letter-spacing: 1px; margin-bottom: 14px;
+        }
+        #panel-body label:last-child { margin-bottom: 0; }
+        #panel-body .row {
+            display: flex; justify-content: space-between; align-items: baseline;
+            margin-bottom: 6px;
+        }
+        #panel-body .val {
+            font-family: ui-monospace, 'SF Mono', monospace;
+            font-weight: 400; font-size: 11px;
+            color: rgba(190,90,150,0.9); letter-spacing: 0;
+        }
+        #panel-body input[type=range] {
+            width: 100%; accent-color: rgba(220,140,180,0.95);
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -68,17 +112,39 @@
     <div id="timer"></div>
     <div id="hint">화면을 탭하여 뒤집기</div>
 </div>
+<div id="panel">
+    <button id="panel-toggle" aria-label="설정">⚙</button>
+    <div id="panel-body" hidden>
+        <label>
+            <div class="row"><span>총 시간</span><span class="val" id="v-duration">60s</span></div>
+            <input type="range" min="10" max="180" step="1" value="60" id="s-duration">
+        </label>
+        <label>
+            <div class="row"><span>입자 크기</span><span class="val" id="v-psize">0.0055</span></div>
+            <input type="range" min="20" max="200" step="1" value="55" id="s-psize">
+        </label>
+        <label>
+            <div class="row"><span>셀당 입자 수</span><span class="val" id="v-ppc">10</span></div>
+            <input type="range" min="1" max="20" step="1" value="10" id="s-ppc">
+        </label>
+        <label>
+            <div class="row"><span>안식각 (slide)</span><span class="val" id="v-slide">3</span></div>
+            <input type="range" min="1" max="6" step="1" value="3" id="s-slide">
+        </label>
+    </div>
+</div>
 <script type="module">
 import * as THREE from 'https://unpkg.com/three@0.164.1/build/three.module.js';
 
 // ── Config ──
 const HG_H = 4, MAX_R = 0.82, NECK_R = 0.12;
-const CELL = 1, STEPS = 3, DURATION = 60, DONE_DELAY = 3000;
-const SLIDE_MAX = 3; // 표면 모래가 한 step에 미끄러질 수 있는 최대 셀 수 → 안식각 ↓ (완만한 더미)
+const CELL = 1, STEPS = 3, DONE_DELAY = 3000;
+let DURATION = 60;
+let SLIDE_MAX = 3; // 표면 모래가 한 step에 미끄러질 수 있는 최대 셀 수 → 안식각 ↓ (완만한 더미)
 const SAND_HEX = [0xF0A8E8,0xE890DC,0xD478C8,0xC060B8,0xE898D8,0xF0B8E8,0xD888D0,0xB860B8];
 const SAND_COL = SAND_HEX.map(h => new THREE.Color(h));
-const P_SIZE = 0.0055;
-const PARTICLES_PER_CELL = 10; // 셀당 입자 N개 → 미세한 가루처럼 연속적인 흐름
+let P_SIZE = 0.0055;
+let PARTICLES_PER_CELL = 10; // 셀당 입자 N개 → 미세한 가루처럼 연속적인 흐름
 
 // ── State ──
 let state = 'IDLE', W, H, dpr;
@@ -327,34 +393,36 @@ for (let r = 0; r < gH; r++) {
 }
 
 // Pre-compute 3D positions for each grid cell — PARTICLES_PER_CELL particles per cell with jitter
-particlePos = new Float32Array(n * PARTICLES_PER_CELL * 3);
-const yStep = HG_H / (gH - 1);
-for (let r = 0; r < gH; r++) {
-    const yCenter = (0.5 - r / (gH - 1)) * HG_H;
-    const r3d = radius3D(r) * 0.82;
-    const hw = hw2(r) || 1;
-    const xStep = r3d / hw;
-    for (let c = 0; c < gW; c++) {
-        const offset = c - cCol;
-        const xCenter = (offset / hw) * r3d;
-        for (let p = 0; p < PARTICLES_PER_CELL; p++) {
-            const idx = ((r * gW + c) * PARTICLES_PER_CELL + p) * 3;
-            // 3 decorrelated hashes for x/y/z jitter
-            const h1 = Math.sin(r * 127.1 + c * 311.7 + p * 71.3) * 43758.5453;
-            const h2 = Math.sin(r * 71.3 + c * 113.5 + p * 217.7) * 43758.5453;
-            const h3 = Math.sin(r * 213.9 + c * 79.1 + p * 309.5) * 43758.5453;
-            const jx = ((h1 - Math.floor(h1)) - 0.5) * xStep * 0.9;
-            const jy = ((h2 - Math.floor(h2)) - 0.5) * yStep * 0.9;
-            const zN = (h3 - Math.floor(h3)) * 2 - 1;
-            const xPos = xCenter + jx;
-            const yPos = yCenter + jy;
-            const zMax = Math.sqrt(Math.max(0, r3d * r3d - xPos * xPos));
-            particlePos[idx] = xPos;
-            particlePos[idx + 1] = yPos;
-            particlePos[idx + 2] = zN * zMax;
+function buildParticlePositions() {
+    particlePos = new Float32Array(n * PARTICLES_PER_CELL * 3);
+    const yStep = HG_H / (gH - 1);
+    for (let r = 0; r < gH; r++) {
+        const yCenter = (0.5 - r / (gH - 1)) * HG_H;
+        const r3d = radius3D(r) * 0.82;
+        const hw = hw2(r) || 1;
+        const xStep = r3d / hw;
+        for (let c = 0; c < gW; c++) {
+            const offset = c - cCol;
+            const xCenter = (offset / hw) * r3d;
+            for (let p = 0; p < PARTICLES_PER_CELL; p++) {
+                const idx = ((r * gW + c) * PARTICLES_PER_CELL + p) * 3;
+                const h1 = Math.sin(r * 127.1 + c * 311.7 + p * 71.3) * 43758.5453;
+                const h2 = Math.sin(r * 71.3 + c * 113.5 + p * 217.7) * 43758.5453;
+                const h3 = Math.sin(r * 213.9 + c * 79.1 + p * 309.5) * 43758.5453;
+                const jx = ((h1 - Math.floor(h1)) - 0.5) * xStep * 0.9;
+                const jy = ((h2 - Math.floor(h2)) - 0.5) * yStep * 0.9;
+                const zN = (h3 - Math.floor(h3)) * 2 - 1;
+                const xPos = xCenter + jx;
+                const yPos = yCenter + jy;
+                const zMax = Math.sqrt(Math.max(0, r3d * r3d - xPos * xPos));
+                particlePos[idx] = xPos;
+                particlePos[idx + 1] = yPos;
+                particlePos[idx + 2] = zN * zMax;
+            }
         }
     }
 }
+buildParticlePositions();
 
 function fillBottom() {
     sand.fill(0);
@@ -370,13 +438,13 @@ totalSandCount = sand.reduce((a, b) => a + b, 0);
 neckFlowPerFrame = totalSandCount / (DURATION * 60);
 
 // ── Sand InstancedMesh ──
-const sandGeo = new THREE.IcosahedronGeometry(P_SIZE, 0);
+let sandGeo = new THREE.IcosahedronGeometry(P_SIZE, 0);
 const sandMat = new THREE.MeshPhysicalMaterial({
     color: 0xffffff, roughness: 0.85, metalness: 0.0,
     sheen: 0.6, sheenColor: new THREE.Color(0xffd8ec),
     sheenRoughness: 0.7
 });
-const sandMesh = new THREE.InstancedMesh(sandGeo, sandMat, (totalSandCount + 500) * PARTICLES_PER_CELL);
+let sandMesh = new THREE.InstancedMesh(sandGeo, sandMat, (totalSandCount + 500) * PARTICLES_PER_CELL);
 sandMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 hgGroup.add(sandMesh);
 
@@ -461,9 +529,11 @@ function simStep() {
                 continue;
             }
             // 2) 사선 슬라이드 — 표면(위가 빈) 모래는 멀리까지 굴러 안식각을 낮춤.
-            //    떨어지는 stream(위에 모래가 이어진 셀)은 1칸만 → 흐름이 퍼지지 않음
+            //    떨어지는 stream(위에 모래가 이어진 셀)은 1칸만 → 흐름이 퍼지지 않음.
+            //    단, 아래가 funnel 벽(bnd=0)이면 안쪽으로 충분히 미끄러져야 갇히지 않음.
             const isPileTop = r === 0 || !sand[i - gW];
-            const slideMax = isPileTop ? SLIDE_MAX : 1;
+            const onWall = !bnd[b];
+            const slideMax = (isPileTop || onWall) ? SLIDE_MAX : 1;
             const d1 = Math.random() < 0.5 ? 1 : -1;
             for (const dirSign of [d1, -d1]) {
                 let bestDi = -1;
@@ -524,6 +594,52 @@ function updateUI() {
     statusEl.className = state === 'COMPLETED' ? 'done' : '';
     hintEl.textContent = hasOrient ? '폰을 뒤집거나 화면을 탭하세요' : '화면을 탭하여 뒤집기';
 }
+
+// ── Settings Panel ──
+const panel = document.getElementById('panel');
+const panelToggle = document.getElementById('panel-toggle');
+const panelBody = document.getElementById('panel-body');
+panelToggle.addEventListener('pointerdown', (e) => e.stopPropagation());
+panelToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = panelBody.hidden;
+    panelBody.hidden = !open;
+    panel.classList.toggle('open', open);
+});
+panelBody.addEventListener('pointerdown', (e) => e.stopPropagation());
+panelBody.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+
+function rebuildSandMesh() {
+    hgGroup.remove(sandMesh);
+    sandMesh.dispose();
+    sandMesh = new THREE.InstancedMesh(sandGeo, sandMat, (totalSandCount + 500) * PARTICLES_PER_CELL);
+    sandMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    hgGroup.add(sandMesh);
+}
+
+document.getElementById('s-duration').addEventListener('input', (e) => {
+    DURATION = +e.target.value;
+    document.getElementById('v-duration').textContent = DURATION + 's';
+    neckFlowPerFrame = totalSandCount / (DURATION * 60);
+});
+document.getElementById('s-psize').addEventListener('input', (e) => {
+    P_SIZE = (+e.target.value) / 10000;
+    document.getElementById('v-psize').textContent = P_SIZE.toFixed(4);
+    const oldGeo = sandGeo;
+    sandGeo = new THREE.IcosahedronGeometry(P_SIZE, 0);
+    sandMesh.geometry = sandGeo;
+    oldGeo.dispose();
+});
+document.getElementById('s-ppc').addEventListener('input', (e) => {
+    PARTICLES_PER_CELL = +e.target.value;
+    document.getElementById('v-ppc').textContent = PARTICLES_PER_CELL;
+    buildParticlePositions();
+    rebuildSandMesh();
+});
+document.getElementById('s-slide').addEventListener('input', (e) => {
+    SLIDE_MAX = +e.target.value;
+    document.getElementById('v-slide').textContent = SLIDE_MAX;
+});
 
 // ── Events ──
 renderer.domElement.addEventListener('pointerdown', (e) => { e.preventDefault(); doFlip(); });
