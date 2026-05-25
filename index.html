@@ -358,7 +358,9 @@ for (let r = 0; r < gH; r++) {
 
 function fillBottom() {
     sand.fill(0);
-    for (let r = cRow + 2; r < gH; r++) {
+    // 1분 모래시계 분량 — 아래쪽 유리의 하단 절반만 채움
+    const startRow = cRow + Math.floor((gH - cRow) * 0.45);
+    for (let r = startRow; r < gH; r++) {
         for (let c = 0; c < gW; c++) {
             const i = r * gW + c;
             if (bnd[i]) { sand[i] = 1; clr[i] = (Math.random() * SAND_HEX.length) | 0; }
