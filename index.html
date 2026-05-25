@@ -540,19 +540,21 @@ for (let r = 0; r < gH; r++) {
 function buildParticlePositions() {
     particlePos = new Float32Array(n * PARTICLES_PER_CELL * 3);
     const yStep = HG_H / (gH - 1);
-    // 0.005를 기준 크기로 spread를 0.55~1.5x 사이에서 스케일
+    // 0.005를 기준 크기로 spread를 스케일. 1.0 초과 시 입자가 셀을 넘어가므로 상한 1.0.
     const sizeRatio = Math.min(P_SIZE / 0.005, 2.5);
-    const spreadFactor = 0.5 + sizeRatio * 0.4; // P_SIZE=0.002→0.66, 0.005→0.9, 0.01→1.3, 0.02→1.5
+    const spreadFactor = 0.5 + sizeRatio * 0.2; // P_SIZE=0.002→0.58, 0.005→0.7, 0.01→0.9, 0.02→1.0
     for (let r = 0; r < gH; r++) {
         const yCenter = (0.5 - r / (gH - 1)) * HG_H;
-        const r3d = radius3D(r) * 0.82;
+        const r3dRaw = radius3D(r) * 0.82;
+        // 입자 시각 반경(P_SIZE)만큼 안쪽으로 마진 → 큰 입자도 표면이 글래스 안쪽에 머무름
+        const r3d = Math.max(0.01, r3dRaw - P_SIZE);
         const hw = hw2(r) || 1;
-        const xStep = r3d / hw;
+        const xStep = r3dRaw / hw;
         const spreadX = xStep * 0.9 * spreadFactor;
         const spreadY = yStep * 0.9 * spreadFactor;
         for (let c = 0; c < gW; c++) {
             const offset = c - cCol;
-            const xCenter = (offset / hw) * r3d;
+            const xCenter = (offset / hw) * r3dRaw;
             for (let p = 0; p < PARTICLES_PER_CELL; p++) {
                 const idx = ((r * gW + c) * PARTICLES_PER_CELL + p) * 3;
                 const h1 = Math.sin(r * 127.1 + c * 311.7 + p * 71.3) * 43758.5453;
@@ -561,7 +563,10 @@ function buildParticlePositions() {
                 const jx = ((h1 - Math.floor(h1)) - 0.5) * spreadX;
                 const jy = ((h2 - Math.floor(h2)) - 0.5) * spreadY;
                 const zN = (h3 - Math.floor(h3)) * 2 - 1;
-                const xPos = xCenter + jx;
+                // 입자 중심이 r3d(=글래스 반경 - P_SIZE) 안에 머무르도록 clamp
+                let xPos = xCenter + jx;
+                if (xPos > r3d) xPos = r3d;
+                else if (xPos < -r3d) xPos = -r3d;
                 const yPos = yCenter + jy;
                 const zMax = Math.sqrt(Math.max(0, r3d * r3d - xPos * xPos));
                 particlePos[idx] = xPos;
