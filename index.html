@@ -473,7 +473,7 @@ function simStep() {
                     // 같은 row의 경로 셀이 막혀있으면 더 못 굴러감
                     if (sand[r * gW + nc]) break;
                     const di = (r + 1) * gW + nc;
-                    if (!bnd[di]) break;
+                    if (!bnd[di]) continue;
                     if (!sand[di]) bestDi = di; // 가능한 가장 먼 착지 지점을 채택
                 }
                 if (bestDi >= 0) {
