@@ -527,15 +527,22 @@ for (let r = 0; r < gH; r++) {
         bnd[r * gW + c] = (inBulb && Math.abs(c - cCol) <= w) ? 1 : 0;
 }
 
-// Pre-compute 3D positions for each grid cell — PARTICLES_PER_CELL particles per cell with jitter
+// Pre-compute 3D positions for each grid cell — PARTICLES_PER_CELL particles per cell with jitter.
+// Spread는 입자 크기(P_SIZE)에 비례. 작은 입자는 셀 중심에 좁게 모이고, 큰 입자는 더 넓게 퍼져
+// 입자 사이 간격이 크기에 비례해 보이도록 한다.
 function buildParticlePositions() {
     particlePos = new Float32Array(n * PARTICLES_PER_CELL * 3);
     const yStep = HG_H / (gH - 1);
+    // 0.005를 기준 크기로 spread를 0.55~1.5x 사이에서 스케일
+    const sizeRatio = Math.min(P_SIZE / 0.005, 2.5);
+    const spreadFactor = 0.5 + sizeRatio * 0.4; // P_SIZE=0.002→0.66, 0.005→0.9, 0.01→1.3, 0.02→1.5
     for (let r = 0; r < gH; r++) {
         const yCenter = (0.5 - r / (gH - 1)) * HG_H;
         const r3d = radius3D(r) * 0.82;
         const hw = hw2(r) || 1;
         const xStep = r3d / hw;
+        const spreadX = xStep * 0.9 * spreadFactor;
+        const spreadY = yStep * 0.9 * spreadFactor;
         for (let c = 0; c < gW; c++) {
             const offset = c - cCol;
             const xCenter = (offset / hw) * r3d;
@@ -544,8 +551,8 @@ function buildParticlePositions() {
                 const h1 = Math.sin(r * 127.1 + c * 311.7 + p * 71.3) * 43758.5453;
                 const h2 = Math.sin(r * 71.3 + c * 113.5 + p * 217.7) * 43758.5453;
                 const h3 = Math.sin(r * 213.9 + c * 79.1 + p * 309.5) * 43758.5453;
-                const jx = ((h1 - Math.floor(h1)) - 0.5) * xStep * 0.9;
-                const jy = ((h2 - Math.floor(h2)) - 0.5) * yStep * 0.9;
+                const jx = ((h1 - Math.floor(h1)) - 0.5) * spreadX;
+                const jy = ((h2 - Math.floor(h2)) - 0.5) * spreadY;
                 const zN = (h3 - Math.floor(h3)) * 2 - 1;
                 const xPos = xCenter + jx;
                 const yPos = yCenter + jy;
@@ -669,26 +676,28 @@ function simStep() {
                 if (isGate) neckFlowBudget -= 1;
                 continue;
             }
-            // 2) 사선 슬라이드 — 표면(위가 빈) 모래는 멀리까지 굴러 안식각을 낮춤.
-            //    떨어지는 stream(위에 모래가 이어진 셀)은 1칸만 → 흐름이 퍼지지 않음.
-            //    단, 아래가 funnel 벽(bnd=0)이면 안쪽으로 충분히 미끄러져야 갇히지 않음.
+            // 2) 사선 슬라이드 — 가장 가까운 빈 셀로 1칸씩 미끄러져 정착 (중력 자연스러움).
+            //    중앙에 먼저 쌓이고 위로 갈수록 좌우로 퍼지는 원뿔 모양이 됨.
+            //    SLIDE_MAX는 step 1이 막혔을 때(funnel 벽으로 인해 bnd 밖) 더 안쪽 step까지
+            //    탐색하기 위한 상한선이지, 무조건 멀리 점프하기 위한 게 아님.
+            //    stream(위에 모래가 이어진 셀)은 1칸만.
             const isPileTop = r === 0 || !sand[i - gW];
             const onWall = !bnd[b];
             const slideMax = (isPileTop || onWall) ? SLIDE_MAX : 1;
             const d1 = Math.random() < 0.5 ? 1 : -1;
             for (const dirSign of [d1, -d1]) {
-                let bestDi = -1;
+                let landDi = -1;
                 for (let step = 1; step <= slideMax; step++) {
                     const nc = c + dirSign * step;
                     if (nc < 0 || nc >= gW) break;
                     // 같은 row의 경로 셀이 막혀있으면 더 못 굴러감
                     if (sand[r * gW + nc]) break;
                     const di = (r + 1) * gW + nc;
-                    if (!bnd[di]) continue;
-                    if (!sand[di]) bestDi = di; // 가능한 가장 먼 착지 지점을 채택
+                    if (!bnd[di]) continue; // bnd 밖이면 건너뛰고 다음 step 탐색
+                    if (!sand[di]) { landDi = di; break; } // 가장 가까운 빈 셀에 정착
                 }
-                if (bestDi >= 0) {
-                    sand[bestDi] = 1; clr[bestDi] = clr[i]; sand[i] = 0; mv[bestDi] = 1;
+                if (landDi >= 0) {
+                    sand[landDi] = 1; clr[landDi] = clr[i]; sand[i] = 0; mv[landDi] = 1;
                     if (isGate) neckFlowBudget -= 1;
                     break;
                 }
@@ -773,6 +782,8 @@ document.getElementById('s-psize').addEventListener('input', (e) => {
     sandGeo = new THREE.IcosahedronGeometry(P_SIZE, 0);
     sandMesh.geometry = sandGeo;
     oldGeo.dispose();
+    // jitter spread도 입자 크기에 비례하므로 위치 재계산
+    buildParticlePositions();
 });
 document.getElementById('s-ppc').addEventListener('input', (e) => {
     PARTICLES_PER_CELL = +e.target.value;
