@@ -101,14 +101,27 @@
         <span>입자 크기 <em id="sand-size-val">1.0×</em></span>
         <input type="range" id="sand-size" min="0.4" max="2.5" step="0.1" value="1.0">
     </label>
+    <label class="ctl">
+        <span>시간 <em id="duration-val">60초</em></span>
+        <input type="range" id="duration" min="10" max="180" step="5" value="60">
+    </label>
+    <label class="ctl">
+        <span>퍼짐 <em id="slide-val">3</em></span>
+        <input type="range" id="slide-max" min="1" max="6" step="1" value="3">
+    </label>
+    <label class="ctl">
+        <span>유리 투명도 <em id="glass-val">92%</em></span>
+        <input type="range" id="glass" min="0" max="1" step="0.05" value="0.92">
+    </label>
 </div>
 <script type="module">
 import * as THREE from 'https://unpkg.com/three@0.164.1/build/three.module.js';
 
 // ── Config ──
 const HG_H = 4, MAX_R = 0.82, NECK_R = 0.12;
-const CELL = 1, STEPS = 3, DURATION = 60, DONE_DELAY = 3000;
-const SLIDE_MAX = 3; // 표면 모래가 한 step에 미끄러질 수 있는 최대 셀 수 → 안식각 ↓ (완만한 더미)
+const CELL = 1, STEPS = 3, DONE_DELAY = 3000;
+let DURATION = 60;
+let SLIDE_MAX = 3; // 표면 모래가 한 step에 미끄러질 수 있는 최대 셀 수 → 안식각 ↓ (완만한 더미)
 const SAND_HEX = [0xF0A8E8,0xE890DC,0xD478C8,0xC060B8,0xE898D8,0xF0B8E8,0xD888D0,0xB860B8];
 const SAND_COL = SAND_HEX.map(h => new THREE.Color(h));
 const P_SIZE = 0.0055;
@@ -601,6 +614,29 @@ sandAmountSlider.addEventListener('input', () => {
 sandSizeSlider.addEventListener('input', () => {
     particleScale = parseFloat(sandSizeSlider.value);
     sandSizeVal.textContent = particleScale.toFixed(1) + '×';
+});
+
+const durationSlider = document.getElementById('duration');
+const durationVal = document.getElementById('duration-val');
+durationSlider.addEventListener('input', () => {
+    DURATION = parseInt(durationSlider.value, 10);
+    durationVal.textContent = DURATION + '초';
+    neckFlowPerFrame = totalSandCount / (DURATION * 60);
+});
+
+const slideSlider = document.getElementById('slide-max');
+const slideVal = document.getElementById('slide-val');
+slideSlider.addEventListener('input', () => {
+    SLIDE_MAX = parseInt(slideSlider.value, 10);
+    slideVal.textContent = String(SLIDE_MAX);
+});
+
+const glassSlider = document.getElementById('glass');
+const glassVal = document.getElementById('glass-val');
+glassSlider.addEventListener('input', () => {
+    const t = parseFloat(glassSlider.value);
+    glassMat.transmission = t;
+    glassVal.textContent = Math.round(t * 100) + '%';
 });
 
 // 컨트롤 위 터치는 모래시계 뒤집기로 전파되지 않도록 차단
