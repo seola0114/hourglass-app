@@ -169,7 +169,7 @@ let state = 'IDLE', W, H, dpr;
 let gW = 65, gH = 130, cCol, cRow, maxHW, neckHW = 2;
 let sand, clr, bnd, mv, colArr;
 let t0 = 0, tDone = 0, fc = 0;
-let totalSandCount = 0, neckFlowBudget = 0, neckFlowPerFrame = 0;
+let totalSandCount = 0, neckFlowBudget = 0, neckFlowPerSecond = 0;
 let prevFlip = false, hasOrient = false;
 let flipAnim = -1, flipDur = 0.55;
 let particlePos;
@@ -589,7 +589,7 @@ fillBottom();
 totalSandCount = sand.reduce((a, b) => a + b, 0);
 // Buffer는 가장 채워졌을 때(SAND_FILL=1) 기준으로 크기 잡음 — 이후 슬라이더로 늘려도 안전.
 const maxSandCount = totalSandCount;
-neckFlowPerFrame = totalSandCount / (DURATION * 60);
+neckFlowPerSecond = totalSandCount / DURATION;
 
 // ── Sand InstancedMesh ──
 let sandGeo = new THREE.IcosahedronGeometry(P_SIZE, 0);
@@ -800,14 +800,14 @@ function rebuildSandMesh() {
 document.getElementById('s-duration').addEventListener('input', (e) => {
     DURATION = +e.target.value;
     document.getElementById('v-duration').textContent = DURATION + 's';
-    neckFlowPerFrame = totalSandCount / (DURATION * 60);
+    neckFlowPerSecond = totalSandCount / DURATION;
 });
 document.getElementById('s-sand').addEventListener('input', (e) => {
     SAND_FILL = (+e.target.value) / 100;
     document.getElementById('v-sand').textContent = (+e.target.value) + '%';
     fillBottom();
     totalSandCount = sand.reduce((a, b) => a + b, 0);
-    neckFlowPerFrame = totalSandCount / (DURATION * 60);
+    neckFlowPerSecond = totalSandCount / DURATION;
     state = 'IDLE';
     neckFlowBudget = 0;
     sparkMat2.opacity = 0;
@@ -900,7 +900,8 @@ function animate(time) {
     // Sand simulation — 항상 돌림 (어떤 자세에서든 흐르도록).
     // 모래가 모두 바닥에 안착해 있으면 simStep은 아무것도 하지 않으므로 안전함.
     if (flipAnim < 0) {
-        neckFlowBudget = Math.min(neckFlowBudget + neckFlowPerFrame, 3);
+        // dt 기반 누적 → 모든 frame rate(60/120Hz 등)에서 동일한 DURATION 보장
+        neckFlowBudget = Math.min(neckFlowBudget + neckFlowPerSecond * dt, 3);
         for (let i = 0; i < STEPS; i++) simStep();
         if (state === 'RUNNING' && fc % 20 === 0 && isDone()) {
             state = 'COMPLETED'; tDone = Date.now();
