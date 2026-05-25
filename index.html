@@ -10,12 +10,11 @@
             width: 100%; height: 100%; height: 100dvh;
             overflow: hidden; position: fixed; top: 0; left: 0;
             background:
-                /* soft pink-mauve cloud band near bottom */
-                radial-gradient(ellipse 75% 22% at 32% 88%, rgba(255,195,215,0.55) 0%, transparent 60%),
-                radial-gradient(ellipse 65% 20% at 78% 92%, rgba(255,175,210,0.48) 0%, transparent 55%),
-                radial-gradient(ellipse 55% 18% at 50% 82%, rgba(235,180,220,0.32) 0%, transparent 55%),
-                /* twilight sky */
-                linear-gradient(180deg, #1a2858 0%, #2a3a78 18%, #3f4790 38%, #6c5e9c 60%, #a07ca0 80%, #d8a4b4 95%, #ebc4c8 100%);
+                radial-gradient(ellipse 60% 22% at 50% 56%, rgba(92,224,255,0.16) 0%, transparent 58%),
+                radial-gradient(ellipse 78% 24% at 36% 89%, rgba(255,175,210,0.48) 0%, transparent 60%),
+                radial-gradient(ellipse 68% 20% at 78% 94%, rgba(255,150,196,0.35) 0%, transparent 58%),
+                radial-gradient(ellipse 90% 18% at 50% 102%, rgba(255,218,190,0.38) 0%, transparent 65%),
+                linear-gradient(180deg, #173f6a 0%, #235b88 22%, #327aa1 45%, #5d8eaa 66%, #8f8fb0 82%, #d19aad 100%);
             touch-action: none; user-select: none;
             -webkit-user-select: none;
             -webkit-tap-highlight-color: transparent;
@@ -23,7 +22,9 @@
         body::before {
             content: ''; position: fixed; inset: 0; pointer-events: none;
             background:
-                linear-gradient(115deg, transparent 35%, rgba(180,210,255,0.10) 42%, rgba(220,200,255,0.10) 48%, rgba(255,220,200,0.10) 54%, transparent 62%);
+                linear-gradient(104deg, transparent 30%, rgba(168,228,255,0.10) 40%, rgba(224,255,248,0.12) 47%, rgba(255,220,200,0.10) 56%, transparent 68%),
+                radial-gradient(circle at 50% 47%, transparent 0%, transparent 42%, rgba(12,28,64,0.18) 78%, rgba(8,12,28,0.34) 100%),
+                linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 22%, rgba(40,90,130,0.12) 100%);
             mix-blend-mode: screen;
         }
         body::after {
@@ -34,7 +35,16 @@
                 radial-gradient(circle, rgba(220,230,255,0.6) 0.6px, transparent 1.2px);
             background-size: 280px 280px, 190px 190px, 130px 130px;
             background-position: 40px 70px, 160px 30px, 90px 180px;
-            opacity: 0.65;
+            opacity: 0.72;
+        }
+        #grain {
+            position: fixed; inset: 0; pointer-events: none; z-index: 2;
+            opacity: 0.11;
+            background-image:
+                repeating-radial-gradient(circle at 12% 18%, rgba(255,255,255,0.18) 0 0.7px, transparent 0.8px 2.4px),
+                repeating-linear-gradient(78deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 4px);
+            background-size: 180px 180px, 220px 220px;
+            mix-blend-mode: soft-light;
         }
         canvas { display: block; position: fixed; top: 0; left: 0; touch-action: none; }
         #ui {
@@ -67,13 +77,20 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             color: rgba(245,235,215,0.9);
             display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+            opacity: 0.12;
+            transform: translateX(204px);
+            transition: opacity 180ms ease, transform 180ms ease;
+        }
+        #panel:hover, #panel:focus-within {
+            opacity: 1;
+            transform: translateX(0);
         }
         #panel-body {
             padding: 16px 18px;
             border-radius: 16px;
-            background: rgba(40,50,90,0.35);
+            background: rgba(18,35,62,0.28);
             backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%);
-            box-shadow: 0 4px 24px rgba(20,25,60,0.45), inset 0 0 0 1px rgba(255,230,180,0.15);
+            box-shadow: 0 4px 24px rgba(20,25,60,0.35), inset 0 0 0 1px rgba(180,245,255,0.18);
             min-width: 220px;
         }
         #panel-body label {
@@ -102,6 +119,7 @@
     <div id="timer"></div>
     <div id="hint">화면을 탭하여 뒤집기</div>
 </div>
+<div id="grain"></div>
 <div id="panel">
     <div id="panel-body">
         <label>
@@ -113,8 +131,8 @@
             <input type="range" min="10" max="100" step="5" value="100" id="s-sand">
         </label>
         <label>
-            <div class="row"><span>입자 크기</span><span class="val" id="v-psize">0.0055</span></div>
-            <input type="range" min="20" max="200" step="1" value="55" id="s-psize">
+            <div class="row"><span>입자 크기</span><span class="val" id="v-psize">0.0070</span></div>
+            <input type="range" min="20" max="200" step="1" value="70" id="s-psize">
         </label>
         <label>
             <div class="row"><span>셀당 입자 수</span><span class="val" id="v-ppc">10</span></div>
@@ -126,8 +144,21 @@
         </label>
     </div>
 </div>
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://unpkg.com/three@0.164.1/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.164.1/examples/jsm/"
+    }
+}
+</script>
 <script type="module">
-import * as THREE from 'https://unpkg.com/three@0.164.1/build/three.module.js';
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 // ── Config ──
 const HG_H = 4, MAX_R = 0.82, NECK_R = 0.12;
@@ -135,9 +166,9 @@ const CELL = 1, STEPS = 3, DONE_DELAY = 3000;
 let DURATION = 60;
 let SAND_FILL = 1.0; // 0~1: 바닥 bulb를 얼마나 채울지 (1=가득)
 let SLIDE_MAX = 3; // 표면 모래가 한 step에 미끄러질 수 있는 최대 셀 수 → 안식각 ↓ (완만한 더미)
-const SAND_HEX = [0xFFF0C8,0xFFE0A0,0xFFD888,0xFFE8B0,0xFFF5DC,0xFFCC78,0xFFE0B8,0xFFD89A];
+const SAND_HEX = [0xFFFFFF,0xFFFDF4,0xFFF8E4,0xF6FBFF,0xFFF1C8,0xF9E7B8,0xFFFFFF,0xFFF6D8];
 const SAND_COL = SAND_HEX.map(h => new THREE.Color(h));
-let P_SIZE = 0.0055;
+let P_SIZE = 0.0070;
 let PARTICLES_PER_CELL = 10; // 셀당 입자 N개 → 미세한 가루처럼 연속적인 흐름
 
 // ── State ──
@@ -161,7 +192,47 @@ H = window.visualViewport?.height || window.innerHeight;
 dpr = Math.min(window.devicePixelRatio || 1, 2);
 
 const scene = new THREE.Scene();
-scene.background = null;
+scene.fog = new THREE.FogExp2(0x17486e, 0.018);
+
+function makeSceneBackground() {
+    const c = document.createElement('canvas');
+    c.width = 1024;
+    c.height = 1536;
+    const ctx = c.getContext('2d');
+    const sky = ctx.createLinearGradient(0, 0, 0, c.height);
+    sky.addColorStop(0, '#153d68');
+    sky.addColorStop(0.28, '#25698f');
+    sky.addColorStop(0.55, '#5a92aa');
+    sky.addColorStop(0.78, '#928dac');
+    sky.addColorStop(1, '#d59aad');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, c.width, c.height);
+
+    for (const cloud of [
+        [250, 1280, 360, 'rgba(255,170,206,0.30)'],
+        [790, 1350, 430, 'rgba(255,196,210,0.24)'],
+        [520, 1460, 520, 'rgba(255,222,194,0.18)'],
+        [520, 760, 500, 'rgba(84,227,255,0.12)']
+    ]) {
+        const g = ctx.createRadialGradient(cloud[0], cloud[1], 0, cloud[0], cloud[1], cloud[2]);
+        g.addColorStop(0, cloud[3]);
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, c.width, c.height);
+    }
+
+    const vignette = ctx.createRadialGradient(512, 720, 120, 512, 720, 920);
+    vignette.addColorStop(0, 'rgba(255,255,255,0)');
+    vignette.addColorStop(0.68, 'rgba(10,35,70,0.04)');
+    vignette.addColorStop(1, 'rgba(8,18,42,0.32)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, c.width, c.height);
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+}
+scene.background = makeSceneBackground();
 
 const camera = new THREE.PerspectiveCamera(24, W / H, 0.1, 100);
 camera.position.set(0.15, 0.15, 13);
@@ -172,8 +243,17 @@ renderer.setSize(W, H);
 renderer.setPixelRatio(dpr);
 renderer.setClearColor(0x000000, 0);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
+renderer.toneMappingExposure = 0.88;
 document.body.appendChild(renderer.domElement);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(W * dpr, H * dpr), 0.22, 0.55, 0.86);
+composer.addPass(bloomPass);
+composer.addPass(new OutputPass());
 
 // ── Lights ──
 scene.add(new THREE.AmbientLight(0xb8c8e8, 0.9));
@@ -186,9 +266,15 @@ scene.add(rimLight);
 const warmLight = new THREE.PointLight(0xffd890, 1.4, 10);
 warmLight.position.set(0, -1, 3);
 scene.add(warmLight);
+const pileLight = new THREE.PointLight(0xffc45c, 0.75, 3.2);
+pileLight.position.set(0, -1.25, 1.2);
+scene.add(pileLight);
 const topLight = new THREE.PointLight(0xa0c0ff, 0.7, 10);
 topLight.position.set(0, 3, 2);
 scene.add(topLight);
+const aquaLight = new THREE.PointLight(0x63f2ff, 1.1, 6);
+aquaLight.position.set(0, 0.75, 1.8);
+scene.add(aquaLight);
 // 골든 글로우 — 모래시계 내부를 따뜻하게 발광시키는 중심 라이트
 const innerGlow = new THREE.PointLight(0xffe0a0, 1.2, 3);
 innerGlow.position.set(0, -0.6, 0);
@@ -196,35 +282,22 @@ scene.add(innerGlow);
 
 // ── Hourglass Group ──
 const hgGroup = new THREE.Group();
+hgGroup.rotation.y = -0.08;
 scene.add(hgGroup);
 
 // ── Profile (shared by glass mesh and sand simulation) ──
 // d in [0, 1]: 0 = neck (center), 1 = top/bottom end
 function bulgeRadius(d) {
-    const keys = [
-        [0.00, NECK_R],
-        [0.04, NECK_R * 1.2],
-        [0.12, NECK_R * 2.6],
-        [0.30, MAX_R * 0.70],
-        [0.55, MAX_R * 0.97],
-        [0.75, MAX_R],
-        [0.90, MAX_R * 0.86],
-        [1.00, MAX_R * 0.42]
-    ];
-    for (let i = 0; i < keys.length - 1; i++) {
-        if (d <= keys[i + 1][0]) {
-            const t = (d - keys[i][0]) / (keys[i + 1][0] - keys[i][0]);
-            const st = t * t * (3 - 2 * t);
-            return keys[i][1] + (keys[i + 1][1] - keys[i][1]) * st;
-        }
-    }
-    return keys[keys.length - 1][1];
+    const smooth = d * d * (3 - 2 * d);
+    const shoulder = Math.sin(smooth * Math.PI * 0.5);
+    const taper = 1 - Math.pow(d, 7) * 0.38;
+    return NECK_R + (MAX_R - NECK_R) * Math.pow(shoulder, 0.82) * taper;
 }
 
 function glassProfile() {
     const pts = [];
-    for (let i = 0; i <= 140; i++) {
-        const t = i / 140;
+    for (let i = 0; i <= 220; i++) {
+        const t = i / 220;
         const d = Math.abs(t - 0.5) * 2;
         const r = bulgeRadius(d);
         pts.push(new THREE.Vector2(r, (t - 0.5) * HG_H));
@@ -233,23 +306,54 @@ function glassProfile() {
 }
 
 // Glass body
-const glassGeo = new THREE.LatheGeometry(glassProfile(), 64);
+const glassGeo = new THREE.LatheGeometry(glassProfile(), 128);
 const glassMat = new THREE.MeshPhysicalMaterial({
-    color: 0xffffff,
+    color: 0xdffcff,
     transparent: true, opacity: 0.22,
     roughness: 0.0, metalness: 0.0,
-    transmission: 0.92, thickness: 0.5,
+    transmission: 0.94, thickness: 0.72,
+    attenuationColor: new THREE.Color(0x9ff6ff),
+    attenuationDistance: 3.2,
     clearcoat: 1.0, clearcoatRoughness: 0.02,
-    iridescence: 0.85, iridescenceIOR: 1.5,
-    iridescenceThicknessRange: [200, 700],
-    ior: 1.45, reflectivity: 0.7,
+    iridescence: 1.0, iridescenceIOR: 1.55,
+    iridescenceThicknessRange: [180, 920],
+    ior: 1.47, reflectivity: 0.9,
+    envMapIntensity: 1.35,
+    specularIntensity: 1.0,
+    specularColor: new THREE.Color(0xffffff),
     side: THREE.DoubleSide, depthWrite: false
 });
-hgGroup.add(new THREE.Mesh(glassGeo, glassMat));
+const glassMesh = new THREE.Mesh(glassGeo, glassMat);
+glassMesh.renderOrder = 3;
+hgGroup.add(glassMesh);
+
+const innerGlassMat = new THREE.MeshPhysicalMaterial({
+    color: 0xf2ffff,
+    transparent: true,
+    opacity: 0.10,
+    roughness: 0.02,
+    transmission: 0.98,
+    thickness: 0.2,
+    attenuationColor: new THREE.Color(0xbdfbff),
+    attenuationDistance: 2.6,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.015,
+    iridescence: 0.65,
+    iridescenceThicknessRange: [120, 500],
+    ior: 1.42,
+    reflectivity: 0.6,
+    envMapIntensity: 1.1,
+    side: THREE.BackSide,
+    depthWrite: false
+});
+const innerGlass = new THREE.Mesh(glassGeo.clone(), innerGlassMat);
+innerGlass.scale.set(0.965, 0.985, 0.965);
+innerGlass.renderOrder = 2;
+hgGroup.add(innerGlass);
 
 // Glass rim glow (soft warm-gold halo)
 const rimMat = new THREE.MeshBasicMaterial({
-    color: 0xffd890, transparent: true, opacity: 0.14,
+    color: 0xd8ffff, transparent: true, opacity: 0.10,
     side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false
 });
 const rimMesh = new THREE.Mesh(glassGeo.clone(), rimMat);
@@ -261,19 +365,46 @@ const highlightGeo = new THREE.LatheGeometry(
     glassProfile().map(p => new THREE.Vector2(p.x * 1.005, p.y)), 4, 0, 0.15
 );
 const highlightMat = new THREE.MeshBasicMaterial({
-    color: 0xffffff, transparent: true, opacity: 0.18,
+    color: 0xffffff, transparent: true, opacity: 0.07,
     side: THREE.DoubleSide, depthWrite: false
 });
-hgGroup.add(new THREE.Mesh(highlightGeo, highlightMat));
+const glassHighlight = new THREE.Mesh(highlightGeo, highlightMat);
+glassHighlight.renderOrder = 6;
+hgGroup.add(glassHighlight);
+
+// Soft aqua glow inside the upper glass, matching the luminous jellyfish reference.
+const upperGlow = new THREE.Mesh(
+    new THREE.SphereGeometry(0.72, 40, 24),
+    new THREE.MeshBasicMaterial({
+        color: 0x64f6ff, transparent: true, opacity: 0.016,
+        blending: THREE.AdditiveBlending, depthWrite: false
+    })
+);
+upperGlow.position.y = 0.82;
+upperGlow.scale.set(1.18, 0.72, 1.18);
+hgGroup.add(upperGlow);
 
 // Frame: iridescent warm-gold metal (caps, posts, beads, finial)
 const frameMat = new THREE.MeshPhysicalMaterial({
-    color: 0xf0d098,
-    metalness: 1.0, roughness: 0.16,
-    clearcoat: 1.0, clearcoatRoughness: 0.06,
-    iridescence: 0.85, iridescenceIOR: 1.45,
-    iridescenceThicknessRange: [180, 620],
-    emissive: 0x553a18, emissiveIntensity: 0.35
+    color: 0xe8fbff,
+    transparent: true,
+    opacity: 0.28,
+    metalness: 0.0,
+    roughness: 0.02,
+    transmission: 0.84,
+    thickness: 0.5,
+    attenuationColor: new THREE.Color(0xc8fbff),
+    attenuationDistance: 2.4,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.02,
+    iridescence: 1.0,
+    iridescenceIOR: 1.45,
+    iridescenceThicknessRange: [160, 760],
+    emissive: 0x79eaff,
+    emissiveIntensity: 0.05,
+    envMapIntensity: 1.4,
+    reflectivity: 0.85,
+    depthWrite: false
 });
 const FRAME_R = MAX_R + 0.18;
 const CAP_THK = 0.16;
@@ -282,14 +413,14 @@ const CAP_THK = 0.16;
 for (const ySign of [-1, 1]) {
     const y = ySign * (HG_H / 2 + CAP_THK / 2 + 0.02);
     const plate = new THREE.Mesh(
-        new THREE.CylinderGeometry(FRAME_R, FRAME_R * 0.95, CAP_THK, 56),
+        new THREE.CylinderGeometry(FRAME_R, FRAME_R * 0.95, CAP_THK, 96),
         frameMat
     );
     plate.position.y = y;
     hgGroup.add(plate);
     // rounded outer rim
     const rim = new THREE.Mesh(
-        new THREE.TorusGeometry(FRAME_R, 0.035, 14, 56),
+        new THREE.TorusGeometry(FRAME_R, 0.035, 18, 112),
         frameMat
     );
     rim.position.y = y + ySign * (CAP_THK / 2 - 0.01);
@@ -297,138 +428,23 @@ for (const ySign of [-1, 1]) {
     hgGroup.add(rim);
 }
 
-// 4 vertical posts with mid-bead
-const POST_R = 0.045;
-const POST_RING_R = FRAME_R * 0.92;
-const POST_LEN = HG_H + CAP_THK * 2 + 0.04;
-for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
-    const px = Math.cos(a) * POST_RING_R;
-    const pz = Math.sin(a) * POST_RING_R;
+// (기둥 제거됨 — plate만 유지)
 
-    const post = new THREE.Mesh(
-        new THREE.CylinderGeometry(POST_R, POST_R, POST_LEN, 20),
-        frameMat
-    );
-    post.position.set(px, 0, pz);
-    hgGroup.add(post);
-
-    // Bead at vertical mid-point of each post
-    const bead = new THREE.Mesh(
-        new THREE.SphereGeometry(POST_R * 2.4, 24, 20),
-        frameMat
-    );
-    bead.position.set(px, 0, pz);
-    hgGroup.add(bead);
-
-    // Small spherical foot below bottom plate
-    const foot = new THREE.Mesh(
-        new THREE.SphereGeometry(POST_R * 1.6, 20, 16),
-        frameMat
-    );
-    foot.position.set(px, -(HG_H / 2 + CAP_THK + 0.05), pz);
-    hgGroup.add(foot);
-}
-
-// Top finial: central small bead + 4 decorative curls
+// Top finial: small transparent bead
 const finialY = HG_H / 2 + CAP_THK + 0.08;
 const finial = new THREE.Mesh(
-    new THREE.SphereGeometry(0.07, 24, 20),
+    new THREE.SphereGeometry(0.045, 32, 24),
     frameMat
 );
-finial.position.y = finialY + 0.08;
+finial.position.y = finialY + 0.04;
 hgGroup.add(finial);
 
-// Tiny stem for the finial
 const stem = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.018, 0.018, 0.08, 12),
+    new THREE.CylinderGeometry(0.012, 0.012, 0.06, 18),
     frameMat
 );
-stem.position.y = finialY + 0.03;
+stem.position.y = finialY;
 hgGroup.add(stem);
-
-// 4 curls (half-torus) radiating from the top plate
-const curlGeo = new THREE.TorusGeometry(0.09, 0.018, 10, 24, Math.PI);
-for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
-    const curl = new THREE.Mesh(curlGeo, frameMat);
-    const cx = Math.cos(a) * 0.16;
-    const cz = Math.sin(a) * 0.16;
-    curl.position.set(cx, finialY, cz);
-    // orient curls so the open side faces inward & arcs upward
-    curl.rotation.y = -a + Math.PI / 2;
-    curl.rotation.x = Math.PI / 2;
-    hgGroup.add(curl);
-}
-
-// ── Saturn-style decorative ring around top bulb ──
-const ringOuterMat = new THREE.MeshBasicMaterial({
-    color: 0xffe8b0, transparent: true, opacity: 0.55,
-    blending: THREE.AdditiveBlending, depthWrite: false
-});
-const ringOuter = new THREE.Mesh(
-    new THREE.TorusGeometry(0.86, 0.012, 8, 96), ringOuterMat
-);
-ringOuter.position.y = 0.85;
-ringOuter.rotation.x = Math.PI / 2 + 0.14;
-hgGroup.add(ringOuter);
-const ringInner = new THREE.Mesh(
-    new THREE.TorusGeometry(0.78, 0.008, 8, 96),
-    new THREE.MeshBasicMaterial({
-        color: 0xffd890, transparent: true, opacity: 0.4,
-        blending: THREE.AdditiveBlending, depthWrite: false
-    })
-);
-ringInner.position.y = 0.85;
-ringInner.rotation.x = Math.PI / 2 + 0.14;
-hgGroup.add(ringInner);
-
-// ── Hanging star pendants (chains + sparkle drops between posts) ──
-const chainMat = new THREE.MeshBasicMaterial({
-    color: 0xffe8b8, transparent: true, opacity: 0.7, depthWrite: false
-});
-const starGlowMat = new THREE.MeshBasicMaterial({
-    color: 0xfff0c8, transparent: true, opacity: 0.95,
-    blending: THREE.AdditiveBlending, depthWrite: false
-});
-const pendantConfig = [
-    { angleOffset: 0,           drop: 1.45, starSize: 0.07 },
-    { angleOffset: Math.PI / 2, drop: 1.10, starSize: 0.06 },
-    { angleOffset: Math.PI,     drop: 1.60, starSize: 0.08 },
-    { angleOffset: -Math.PI/2,  drop: 1.25, starSize: 0.065 }
-];
-const PEND_R = FRAME_R + 0.02;
-const PEND_TOP_Y = HG_H / 2 - 0.02; // 상단 plate 바로 아래에서 매달림
-for (const cfg of pendantConfig) {
-    const px = Math.cos(cfg.angleOffset) * PEND_R;
-    const pz = Math.sin(cfg.angleOffset) * PEND_R;
-    // chain (thin cylinder)
-    const chain = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.003, 0.003, cfg.drop, 6), chainMat
-    );
-    chain.position.set(px, PEND_TOP_Y - cfg.drop / 2, pz);
-    hgGroup.add(chain);
-    // star at end — octahedron with additive halo
-    const star = new THREE.Mesh(
-        new THREE.OctahedronGeometry(cfg.starSize, 0),
-        new THREE.MeshPhysicalMaterial({
-            color: 0xfff0c8, metalness: 0.6, roughness: 0.2,
-            emissive: 0xffd890, emissiveIntensity: 1.2,
-            clearcoat: 1.0
-        })
-    );
-    star.position.set(px, PEND_TOP_Y - cfg.drop, pz);
-    star.rotation.set(Math.PI / 4, Math.PI / 4, 0);
-    hgGroup.add(star);
-    // halo sprite around star
-    const halo = new THREE.Mesh(
-        new THREE.SphereGeometry(cfg.starSize * 2.6, 16, 12),
-        starGlowMat.clone()
-    );
-    halo.material.opacity = 0.25;
-    halo.position.copy(star.position);
-    hgGroup.add(halo);
-}
 
 // ── Crescent moon emblem inside bottom bulb ──
 function makeMoonTexture() {
@@ -475,7 +491,7 @@ moonSprite.position.set(0, -0.85, 0);
 hgGroup.add(moonSprite);
 
 // ── Background twinkling stars (scattered in scene, outside hourglass) ──
-const BG_STAR_N = 90;
+const BG_STAR_N = 45;
 const bgStarGeo = new THREE.BufferGeometry();
 const bgStarPos = new Float32Array(BG_STAR_N * 3);
 const bgStarPhase = new Float32Array(BG_STAR_N);
@@ -491,11 +507,53 @@ for (let i = 0; i < BG_STAR_N; i++) {
 }
 bgStarGeo.setAttribute('position', new THREE.BufferAttribute(bgStarPos, 3));
 const bgStarMat = new THREE.PointsMaterial({
-    color: 0xfff4d0, size: 0.07, transparent: true, opacity: 0.85,
+    map: makeDotTexture(),
+    color: 0xfff8dc, size: 0.038, transparent: true, opacity: 0.48,
     blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
 });
 const bgStars = new THREE.Points(bgStarGeo, bgStarMat);
 scene.add(bgStars);
+
+function makeDotTexture() {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const ctx = c.getContext('2d');
+    const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 58);
+    grad.addColorStop(0, 'rgba(255,255,235,1)');
+    grad.addColorStop(0.32, 'rgba(118,246,255,0.42)');
+    grad.addColorStop(1, 'rgba(118,246,255,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 128, 128);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+}
+
+const DUST_N = 360;
+const dustGeo = new THREE.BufferGeometry();
+const dustPos = new Float32Array(DUST_N * 3);
+const dustPhase = new Float32Array(DUST_N);
+for (let i = 0; i < DUST_N; i++) {
+    const theta = Math.random() * Math.PI * 2;
+    const radius = 0.45 + Math.random() * 2.1;
+    dustPos[i * 3] = Math.cos(theta) * radius;
+    dustPos[i * 3 + 1] = -2.0 + Math.random() * 4.2;
+    dustPos[i * 3 + 2] = Math.sin(theta) * radius - 0.3;
+    dustPhase[i] = Math.random() * Math.PI * 2;
+}
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+const dustMat = new THREE.PointsMaterial({
+    map: makeDotTexture(),
+    color: 0xcdfcff,
+    size: 0.035,
+    transparent: true,
+    opacity: 0.38,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    sizeAttenuation: true
+});
+const dustPoints = new THREE.Points(dustGeo, dustMat);
+scene.add(dustPoints);
 
 // ── Sand Grid Init ──
 cCol = gW >> 1;
@@ -587,11 +645,45 @@ neckFlowPerFrame = totalSandCount / (DURATION * 60);
 // ── Sand InstancedMesh ──
 let sandGeo = new THREE.IcosahedronGeometry(P_SIZE, 0);
 const sandMat = new THREE.MeshPhysicalMaterial({
-    color: 0xffffff, roughness: 0.78, metalness: 0.0,
-    sheen: 0.8, sheenColor: new THREE.Color(0xfff0b0),
-    sheenRoughness: 0.55,
-    emissive: 0xffd890, emissiveIntensity: 0.25
+    color: 0xffffff, roughness: 0.58, metalness: 0.0,
+    sheen: 1.0, sheenColor: new THREE.Color(0xffffff),
+    sheenRoughness: 0.38,
+    emissive: 0xfff2c8, emissiveIntensity: 0.20,
+    iridescence: 0.85,
+    iridescenceIOR: 1.45,
+    iridescenceThicknessRange: [150, 650]
 });
+
+function makeSandMoundGeometry() {
+    const pts = [];
+    pts.push(new THREE.Vector2(0, -1.64));
+    pts.push(new THREE.Vector2(0.68, -1.64));
+    for (let i = 0; i <= 48; i++) {
+        const t = i / 48;
+        const x = 0.68 * Math.pow(1 - t, 0.82);
+        const y = -1.64 + 1.24 * Math.pow(t, 1.42);
+        pts.push(new THREE.Vector2(x, y));
+    }
+    pts.push(new THREE.Vector2(0, -1.64));
+    return new THREE.LatheGeometry(pts, 128);
+}
+const sandMound = new THREE.Mesh(
+    makeSandMoundGeometry(),
+    new THREE.MeshPhysicalMaterial({
+        color: 0xfffdf4,
+        transparent: true,
+        opacity: 0.12,
+        roughness: 0.72,
+        metalness: 0.0,
+        sheen: 1.0,
+        sheenColor: new THREE.Color(0xffffff),
+        emissive: 0xfff2d2,
+        emissiveIntensity: 0.035,
+        depthWrite: false
+    })
+);
+sandMound.renderOrder = 1;
+hgGroup.add(sandMound);
 let sandMesh = new THREE.InstancedMesh(sandGeo, sandMat, (maxSandCount + 500) * PARTICLES_PER_CELL);
 sandMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 hgGroup.add(sandMesh);
@@ -830,6 +922,8 @@ function onResize() {
     camera.aspect = W / H;
     camera.updateProjectionMatrix();
     renderer.setSize(W, H);
+    composer.setSize(W, H);
+    bloomPass.resolution.set(W * dpr, H * dpr);
 }
 window.addEventListener('resize', onResize);
 window.visualViewport?.addEventListener('resize', onResize);
@@ -902,16 +996,18 @@ function animate(time) {
     bgStarMat.size = 0.07 + Math.sin(tw * 0.7) * 0.012;
     moonMat.opacity = 0.78 + Math.sin(tw * 0.8) * 0.14;
     moonSprite.scale.setScalar(0.6 + Math.sin(tw * 0.6) * 0.025);
-    // Hourglass gentle sway (z axis is independent of flip animation on x)
-    hgGroup.rotation.z = Math.sin(tw * 0.4) * 0.012;
-
-    // Subtle camera sway
-    const st = time * 0.0002;
-    camera.position.x = 0.15 + Math.sin(st) * 0.06;
-    camera.position.y = 0.15 + Math.cos(st * 0.7) * 0.04;
+    upperGlow.material.opacity = 0.012;
+    aquaLight.intensity = 0.68 + Math.sin(tw * 1.4) * 0.16;
+    innerGlow.color.setHSL(0.12 + Math.sin(tw * 0.35) * 0.04, 0.85, 0.70);
+    dustPoints.rotation.y = 0;
+    dustMat.opacity = 0.18;
+    bloomPass.strength = 0.14;
+    hgGroup.rotation.z = 0;
+    camera.position.x = 0.15;
+    camera.position.y = 0.15;
     camera.lookAt(0, 0, 0);
 
-    renderer.render(scene, camera);
+    composer.render();
     requestAnimationFrame(animate);
 }
 
