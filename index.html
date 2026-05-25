@@ -302,18 +302,18 @@ function glassProfile() {
 const glassGeo = new THREE.LatheGeometry(glassProfile(), 128);
 const glassMat = new THREE.MeshPhysicalMaterial({
     color: 0xdffcff,
-    transparent: true, opacity: 0.22,
-    roughness: 0.0, metalness: 0.0,
-    transmission: 0.94, thickness: 0.72,
-    attenuationColor: new THREE.Color(0x9ff6ff),
-    attenuationDistance: 3.2,
-    clearcoat: 1.0, clearcoatRoughness: 0.02,
-    iridescence: 1.0, iridescenceIOR: 1.55,
-    iridescenceThicknessRange: [180, 920],
-    ior: 1.47, reflectivity: 0.9,
-    envMapIntensity: 1.35,
-    specularIntensity: 1.0,
-    specularColor: new THREE.Color(0xffffff),
+    transparent: true, opacity: 0.14,
+    roughness: 0.08, metalness: 0.0,
+    transmission: 0.96, thickness: 0.5,
+    attenuationColor: new THREE.Color(0xbcf3ff),
+    attenuationDistance: 4.0,
+    clearcoat: 0.45, clearcoatRoughness: 0.18,
+    iridescence: 0.25, iridescenceIOR: 1.45,
+    iridescenceThicknessRange: [180, 600],
+    ior: 1.45, reflectivity: 0.45,
+    envMapIntensity: 0.55,
+    specularIntensity: 0.45,
+    specularColor: new THREE.Color(0xeaf6ff),
     side: THREE.DoubleSide, depthWrite: false
 });
 const glassMesh = new THREE.Mesh(glassGeo, glassMat);
@@ -323,19 +323,19 @@ hgGroup.add(glassMesh);
 const innerGlassMat = new THREE.MeshPhysicalMaterial({
     color: 0xf2ffff,
     transparent: true,
-    opacity: 0.10,
-    roughness: 0.02,
-    transmission: 0.98,
-    thickness: 0.2,
-    attenuationColor: new THREE.Color(0xbdfbff),
-    attenuationDistance: 2.6,
-    clearcoat: 1.0,
-    clearcoatRoughness: 0.015,
-    iridescence: 0.65,
-    iridescenceThicknessRange: [120, 500],
-    ior: 1.42,
-    reflectivity: 0.6,
-    envMapIntensity: 1.1,
+    opacity: 0.04,
+    roughness: 0.1,
+    transmission: 0.99,
+    thickness: 0.15,
+    attenuationColor: new THREE.Color(0xcef9ff),
+    attenuationDistance: 3.4,
+    clearcoat: 0.3,
+    clearcoatRoughness: 0.2,
+    iridescence: 0.1,
+    iridescenceThicknessRange: [120, 360],
+    ior: 1.4,
+    reflectivity: 0.25,
+    envMapIntensity: 0.4,
     side: THREE.BackSide,
     depthWrite: false
 });
@@ -346,7 +346,7 @@ hgGroup.add(innerGlass);
 
 // Glass rim glow (soft warm-gold halo)
 const rimMat = new THREE.MeshBasicMaterial({
-    color: 0xd8ffff, transparent: true, opacity: 0.10,
+    color: 0xd8ffff, transparent: true, opacity: 0.045,
     side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false
 });
 const rimMesh = new THREE.Mesh(glassGeo.clone(), rimMat);
@@ -358,7 +358,7 @@ const highlightGeo = new THREE.LatheGeometry(
     glassProfile().map(p => new THREE.Vector2(p.x * 1.005, p.y)), 4, 0, 0.15
 );
 const highlightMat = new THREE.MeshBasicMaterial({
-    color: 0xffffff, transparent: true, opacity: 0.07,
+    color: 0xffffff, transparent: true, opacity: 0.025,
     side: THREE.DoubleSide, depthWrite: false
 });
 const glassHighlight = new THREE.Mesh(highlightGeo, highlightMat);
@@ -369,7 +369,7 @@ hgGroup.add(glassHighlight);
 const upperGlow = new THREE.Mesh(
     new THREE.SphereGeometry(0.72, 40, 24),
     new THREE.MeshBasicMaterial({
-        color: 0x64f6ff, transparent: true, opacity: 0.016,
+        color: 0x64f6ff, transparent: true, opacity: 0.006,
         blending: THREE.AdditiveBlending, depthWrite: false
     })
 );
@@ -638,13 +638,11 @@ neckFlowPerFrame = totalSandCount / (DURATION * 60);
 // ── Sand InstancedMesh ──
 let sandGeo = new THREE.IcosahedronGeometry(P_SIZE, 0);
 const sandMat = new THREE.MeshPhysicalMaterial({
-    color: 0xffffff, roughness: 0.58, metalness: 0.0,
-    sheen: 1.0, sheenColor: new THREE.Color(0xffffff),
-    sheenRoughness: 0.38,
-    emissive: 0xfff2c8, emissiveIntensity: 0.20,
-    iridescence: 0.85,
-    iridescenceIOR: 1.45,
-    iridescenceThicknessRange: [150, 650]
+    color: 0xffffff, roughness: 0.42, metalness: 0.0,
+    sheen: 0.6, sheenColor: new THREE.Color(0xffffff),
+    sheenRoughness: 0.45,
+    emissive: 0xfff6d8, emissiveIntensity: 0.85,
+    envMapIntensity: 0.6
 });
 
 function makeSandMoundGeometry() {
@@ -989,12 +987,13 @@ function animate(time) {
     bgStarMat.size = 0.07 + Math.sin(tw * 0.7) * 0.012;
     moonMat.opacity = 0.78 + Math.sin(tw * 0.8) * 0.14;
     moonSprite.scale.setScalar(0.6 + Math.sin(tw * 0.6) * 0.025);
-    upperGlow.material.opacity = 0.012;
-    aquaLight.intensity = 0.68 + Math.sin(tw * 1.4) * 0.16;
+    upperGlow.material.opacity = 0.005;
+    aquaLight.intensity = 0.35 + Math.sin(tw * 1.4) * 0.08;
     innerGlow.color.setHSL(0.12 + Math.sin(tw * 0.35) * 0.04, 0.85, 0.70);
+    innerGlow.intensity = 0.8;
     dustPoints.rotation.y = 0;
-    dustMat.opacity = 0.18;
-    bloomPass.strength = 0.14;
+    dustMat.opacity = 0.14;
+    bloomPass.strength = 0.32;
     hgGroup.rotation.z = 0;
     camera.position.x = 0.15;
     camera.position.y = 0.15;
