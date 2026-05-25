@@ -470,11 +470,12 @@ function simStep() {
                 for (let step = 1; step <= slideMax; step++) {
                     const nc = c + dirSign * step;
                     if (nc < 0 || nc >= gW) break;
-                    // 같은 row의 경로 셀이 막혀있으면 더 못 굴러감
+                    // 같은 row의 경로 셀이 벽 밖이거나 막혀있으면 더 못 굴러감
+                    if (!bnd[r * gW + nc]) break;
                     if (sand[r * gW + nc]) break;
                     const di = (r + 1) * gW + nc;
-                    if (!bnd[di]) break;
-                    if (!sand[di]) bestDi = di; // 가능한 가장 먼 착지 지점을 채택
+                    // 바로 아래가 벽이어도(어깨 안쪽 곡면) 더 안쪽으로 미끄러질 수 있도록 탐색을 계속
+                    if (bnd[di] && !sand[di]) bestDi = di;
                 }
                 if (bestDi >= 0) {
                     sand[bestDi] = 1; clr[bestDi] = clr[i]; sand[i] = 0; mv[bestDi] = 1;
