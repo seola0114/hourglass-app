@@ -302,68 +302,24 @@ function glassProfile() {
 const glassGeo = new THREE.LatheGeometry(glassProfile(), 128);
 const glassMat = new THREE.MeshPhysicalMaterial({
     color: 0xdffcff,
-    transparent: true, opacity: 0.14,
-    roughness: 0.08, metalness: 0.0,
-    transmission: 0.96, thickness: 0.5,
-    attenuationColor: new THREE.Color(0xbcf3ff),
-    attenuationDistance: 4.0,
-    clearcoat: 0.45, clearcoatRoughness: 0.18,
-    iridescence: 0.25, iridescenceIOR: 1.45,
-    iridescenceThicknessRange: [180, 600],
-    ior: 1.45, reflectivity: 0.45,
-    envMapIntensity: 0.55,
-    specularIntensity: 0.45,
-    specularColor: new THREE.Color(0xeaf6ff),
+    transparent: true, opacity: 0.12,
+    roughness: 0.18, metalness: 0.0,
+    transmission: 0.97, thickness: 0.4,
+    attenuationColor: new THREE.Color(0xc6f3ff),
+    attenuationDistance: 4.4,
+    clearcoat: 0.0,
+    iridescence: 0.0,
+    ior: 1.42, reflectivity: 0.25,
+    envMapIntensity: 0.3,
+    specularIntensity: 0.22,
+    specularColor: new THREE.Color(0xdef0ff),
     side: THREE.DoubleSide, depthWrite: false
 });
 const glassMesh = new THREE.Mesh(glassGeo, glassMat);
 glassMesh.renderOrder = 3;
 hgGroup.add(glassMesh);
 
-const innerGlassMat = new THREE.MeshPhysicalMaterial({
-    color: 0xf2ffff,
-    transparent: true,
-    opacity: 0.04,
-    roughness: 0.1,
-    transmission: 0.99,
-    thickness: 0.15,
-    attenuationColor: new THREE.Color(0xcef9ff),
-    attenuationDistance: 3.4,
-    clearcoat: 0.3,
-    clearcoatRoughness: 0.2,
-    iridescence: 0.1,
-    iridescenceThicknessRange: [120, 360],
-    ior: 1.4,
-    reflectivity: 0.25,
-    envMapIntensity: 0.4,
-    side: THREE.BackSide,
-    depthWrite: false
-});
-const innerGlass = new THREE.Mesh(glassGeo.clone(), innerGlassMat);
-innerGlass.scale.set(0.965, 0.985, 0.965);
-innerGlass.renderOrder = 2;
-hgGroup.add(innerGlass);
-
-// Glass rim glow (soft warm-gold halo)
-const rimMat = new THREE.MeshBasicMaterial({
-    color: 0xd8ffff, transparent: true, opacity: 0.045,
-    side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false
-});
-const rimMesh = new THREE.Mesh(glassGeo.clone(), rimMat);
-rimMesh.scale.multiplyScalar(1.02);
-hgGroup.add(rimMesh);
-
-// Glass specular highlight line
-const highlightGeo = new THREE.LatheGeometry(
-    glassProfile().map(p => new THREE.Vector2(p.x * 1.005, p.y)), 4, 0, 0.15
-);
-const highlightMat = new THREE.MeshBasicMaterial({
-    color: 0xffffff, transparent: true, opacity: 0.025,
-    side: THREE.DoubleSide, depthWrite: false
-});
-const glassHighlight = new THREE.Mesh(highlightGeo, highlightMat);
-glassHighlight.renderOrder = 6;
-hgGroup.add(glassHighlight);
+// (innerGlass / rimMesh / glassHighlight 데코 메쉬 제거 — 내부 cone-streak 정리)
 
 // Soft aqua glow inside the upper glass, matching the luminous jellyfish reference.
 const upperGlow = new THREE.Mesh(
