@@ -10,10 +10,12 @@
             width: 100%; height: 100%; height: 100dvh;
             overflow: hidden; position: fixed; top: 0; left: 0;
             background:
-                radial-gradient(ellipse at 15% 25%, rgba(255,200,255,0.35) 0%, transparent 28%),
-                radial-gradient(ellipse at 85% 75%, rgba(200,255,240,0.28) 0%, transparent 30%),
-                radial-gradient(circle at 70% 20%, rgba(255,230,180,0.22) 0%, transparent 22%),
-                linear-gradient(180deg, #c5b0dc 0%, #d8b8dc 35%, #ebc4d4 65%, #f3d0d4 100%);
+                /* soft pink-mauve cloud band near bottom */
+                radial-gradient(ellipse 75% 22% at 32% 88%, rgba(255,195,215,0.55) 0%, transparent 60%),
+                radial-gradient(ellipse 65% 20% at 78% 92%, rgba(255,175,210,0.48) 0%, transparent 55%),
+                radial-gradient(ellipse 55% 18% at 50% 82%, rgba(235,180,220,0.32) 0%, transparent 55%),
+                /* twilight sky */
+                linear-gradient(180deg, #1a2858 0%, #2a3a78 18%, #3f4790 38%, #6c5e9c 60%, #a07ca0 80%, #d8a4b4 95%, #ebc4c8 100%);
             touch-action: none; user-select: none;
             -webkit-user-select: none;
             -webkit-tap-highlight-color: transparent;
@@ -21,18 +23,18 @@
         body::before {
             content: ''; position: fixed; inset: 0; pointer-events: none;
             background:
-                linear-gradient(115deg, transparent 35%, rgba(255,180,220,0.18) 42%, rgba(180,220,255,0.18) 48%, rgba(200,255,200,0.15) 54%, transparent 62%),
-                linear-gradient(60deg, transparent 30%, rgba(255,200,180,0.12) 38%, rgba(220,180,255,0.14) 45%, transparent 55%);
+                linear-gradient(115deg, transparent 35%, rgba(180,210,255,0.10) 42%, rgba(220,200,255,0.10) 48%, rgba(255,220,200,0.10) 54%, transparent 62%);
             mix-blend-mode: screen;
         }
         body::after {
             content: ''; position: fixed; inset: 0; pointer-events: none;
             background-image:
-                radial-gradient(circle, rgba(255,255,255,0.9) 1px, transparent 2px),
-                radial-gradient(circle, rgba(255,220,255,0.7) 1px, transparent 2px);
-            background-size: 320px 320px, 220px 220px;
-            background-position: 30px 60px, 180px 200px;
-            opacity: 0.5;
+                radial-gradient(circle, rgba(255,255,255,0.9) 1px, transparent 1.5px),
+                radial-gradient(circle, rgba(255,240,200,0.7) 0.8px, transparent 1.5px),
+                radial-gradient(circle, rgba(220,230,255,0.6) 0.6px, transparent 1.2px);
+            background-size: 280px 280px, 190px 190px, 130px 130px;
+            background-position: 40px 70px, 160px 30px, 90px 180px;
+            opacity: 0.65;
         }
         canvas { display: block; position: fixed; top: 0; left: 0; touch-action: none; }
         #ui {
@@ -42,36 +44,36 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
         #status {
-            margin-top: 40px; color: rgba(120,90,140,0.55);
+            margin-top: 40px; color: rgba(245,235,210,0.75);
             font-size: 12px; font-weight: 600; letter-spacing: 2px;
-            text-shadow: 0 1px 2px rgba(255,255,255,0.4);
+            text-shadow: 0 1px 4px rgba(40,40,80,0.5);
         }
-        #status.done { color: rgba(220,100,160,0.85); }
+        #status.done { color: rgba(255,230,170,0.95); }
         #timer {
-            margin-top: 8px; color: rgba(100,80,130,0.7);
+            margin-top: 8px; color: rgba(255,240,210,0.85);
             font-size: 24px; font-weight: 300;
             font-family: ui-monospace, 'SF Mono', monospace;
             min-height: 30px;
-            text-shadow: 0 1px 2px rgba(255,255,255,0.4);
+            text-shadow: 0 1px 4px rgba(40,40,80,0.5);
         }
         #hint {
             position: fixed; bottom: 32px; left: 0; width: 100%;
-            text-align: center; color: rgba(120,90,140,0.4);
+            text-align: center; color: rgba(240,225,210,0.55);
             font-size: 11px;
-            text-shadow: 0 1px 2px rgba(255,255,255,0.3);
+            text-shadow: 0 1px 4px rgba(40,40,80,0.4);
         }
         #panel {
             position: fixed; top: 14px; right: 14px; z-index: 20;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            color: rgba(120,90,140,0.85);
+            color: rgba(245,235,215,0.9);
             display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
         }
         #panel-body {
             padding: 16px 18px;
             border-radius: 16px;
-            background: rgba(255,255,255,0.4);
-            backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-            box-shadow: 0 4px 24px rgba(180,140,180,0.25);
+            background: rgba(40,50,90,0.35);
+            backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%);
+            box-shadow: 0 4px 24px rgba(20,25,60,0.45), inset 0 0 0 1px rgba(255,230,180,0.15);
             min-width: 220px;
         }
         #panel-body label {
@@ -86,10 +88,10 @@
         #panel-body .val {
             font-family: ui-monospace, 'SF Mono', monospace;
             font-weight: 400; font-size: 11px;
-            color: rgba(190,90,150,0.9); letter-spacing: 0;
+            color: rgba(255,225,170,0.95); letter-spacing: 0;
         }
         #panel-body input[type=range] {
-            width: 100%; accent-color: rgba(220,140,180,0.95);
+            width: 100%; accent-color: rgba(255,210,150,0.95);
             cursor: pointer;
         }
     </style>
@@ -133,7 +135,7 @@ const CELL = 1, STEPS = 3, DONE_DELAY = 3000;
 let DURATION = 60;
 let SAND_FILL = 1.0; // 0~1: 바닥 bulb를 얼마나 채울지 (1=가득)
 let SLIDE_MAX = 3; // 표면 모래가 한 step에 미끄러질 수 있는 최대 셀 수 → 안식각 ↓ (완만한 더미)
-const SAND_HEX = [0xF0A8E8,0xE890DC,0xD478C8,0xC060B8,0xE898D8,0xF0B8E8,0xD888D0,0xB860B8];
+const SAND_HEX = [0xFFF0C8,0xFFE0A0,0xFFD888,0xFFE8B0,0xFFF5DC,0xFFCC78,0xFFE0B8,0xFFD89A];
 const SAND_COL = SAND_HEX.map(h => new THREE.Color(h));
 let P_SIZE = 0.0055;
 let PARTICLES_PER_CELL = 10; // 셀당 입자 N개 → 미세한 가루처럼 연속적인 흐름
@@ -174,19 +176,23 @@ renderer.toneMappingExposure = 1.15;
 document.body.appendChild(renderer.domElement);
 
 // ── Lights ──
-scene.add(new THREE.AmbientLight(0xf0e0f0, 1.2));
-const dirLight = new THREE.DirectionalLight(0xfff0f8, 1.6);
+scene.add(new THREE.AmbientLight(0xb8c8e8, 0.9));
+const dirLight = new THREE.DirectionalLight(0xfff0c8, 1.4);
 dirLight.position.set(3, 4, 5);
 scene.add(dirLight);
-const rimLight = new THREE.DirectionalLight(0xa8c8f0, 0.9);
+const rimLight = new THREE.DirectionalLight(0x88a8ff, 1.1);
 rimLight.position.set(-3, -1, -3);
 scene.add(rimLight);
-const warmLight = new THREE.PointLight(0xffb8d8, 0.6, 10);
+const warmLight = new THREE.PointLight(0xffd890, 1.4, 10);
 warmLight.position.set(0, -1, 3);
 scene.add(warmLight);
-const topLight = new THREE.PointLight(0xc0d0ff, 0.5, 10);
+const topLight = new THREE.PointLight(0xa0c0ff, 0.7, 10);
 topLight.position.set(0, 3, 2);
 scene.add(topLight);
+// 골든 글로우 — 모래시계 내부를 따뜻하게 발광시키는 중심 라이트
+const innerGlow = new THREE.PointLight(0xffe0a0, 1.2, 3);
+innerGlow.position.set(0, -0.6, 0);
+scene.add(innerGlow);
 
 // ── Hourglass Group ──
 const hgGroup = new THREE.Group();
@@ -241,9 +247,9 @@ const glassMat = new THREE.MeshPhysicalMaterial({
 });
 hgGroup.add(new THREE.Mesh(glassGeo, glassMat));
 
-// Glass rim glow (soft pink-blue halo)
+// Glass rim glow (soft warm-gold halo)
 const rimMat = new THREE.MeshBasicMaterial({
-    color: 0xffc8e0, transparent: true, opacity: 0.08,
+    color: 0xffd890, transparent: true, opacity: 0.14,
     side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false
 });
 const rimMesh = new THREE.Mesh(glassGeo.clone(), rimMat);
@@ -260,13 +266,14 @@ const highlightMat = new THREE.MeshBasicMaterial({
 });
 hgGroup.add(new THREE.Mesh(highlightGeo, highlightMat));
 
-// Frame: rose-gold iridescent metal (caps, posts, beads, finial)
+// Frame: iridescent warm-gold metal (caps, posts, beads, finial)
 const frameMat = new THREE.MeshPhysicalMaterial({
-    color: 0xeab8c4,
-    metalness: 1.0, roughness: 0.18,
-    clearcoat: 1.0, clearcoatRoughness: 0.08,
-    iridescence: 0.7, iridescenceIOR: 1.4,
-    iridescenceThicknessRange: [120, 520]
+    color: 0xf0d098,
+    metalness: 1.0, roughness: 0.16,
+    clearcoat: 1.0, clearcoatRoughness: 0.06,
+    iridescence: 0.85, iridescenceIOR: 1.45,
+    iridescenceThicknessRange: [180, 620],
+    emissive: 0x553a18, emissiveIntensity: 0.35
 });
 const FRAME_R = MAX_R + 0.18;
 const CAP_THK = 0.16;
@@ -354,6 +361,142 @@ for (let i = 0; i < 4; i++) {
     hgGroup.add(curl);
 }
 
+// ── Saturn-style decorative ring around top bulb ──
+const ringOuterMat = new THREE.MeshBasicMaterial({
+    color: 0xffe8b0, transparent: true, opacity: 0.55,
+    blending: THREE.AdditiveBlending, depthWrite: false
+});
+const ringOuter = new THREE.Mesh(
+    new THREE.TorusGeometry(0.86, 0.012, 8, 96), ringOuterMat
+);
+ringOuter.position.y = 0.85;
+ringOuter.rotation.x = Math.PI / 2 + 0.14;
+hgGroup.add(ringOuter);
+const ringInner = new THREE.Mesh(
+    new THREE.TorusGeometry(0.78, 0.008, 8, 96),
+    new THREE.MeshBasicMaterial({
+        color: 0xffd890, transparent: true, opacity: 0.4,
+        blending: THREE.AdditiveBlending, depthWrite: false
+    })
+);
+ringInner.position.y = 0.85;
+ringInner.rotation.x = Math.PI / 2 + 0.14;
+hgGroup.add(ringInner);
+
+// ── Hanging star pendants (chains + sparkle drops between posts) ──
+const chainMat = new THREE.MeshBasicMaterial({
+    color: 0xffe8b8, transparent: true, opacity: 0.7, depthWrite: false
+});
+const starGlowMat = new THREE.MeshBasicMaterial({
+    color: 0xfff0c8, transparent: true, opacity: 0.95,
+    blending: THREE.AdditiveBlending, depthWrite: false
+});
+const pendantConfig = [
+    { angleOffset: 0,           drop: 1.45, starSize: 0.07 },
+    { angleOffset: Math.PI / 2, drop: 1.10, starSize: 0.06 },
+    { angleOffset: Math.PI,     drop: 1.60, starSize: 0.08 },
+    { angleOffset: -Math.PI/2,  drop: 1.25, starSize: 0.065 }
+];
+const PEND_R = FRAME_R + 0.02;
+const PEND_TOP_Y = HG_H / 2 - 0.02; // 상단 plate 바로 아래에서 매달림
+for (const cfg of pendantConfig) {
+    const px = Math.cos(cfg.angleOffset) * PEND_R;
+    const pz = Math.sin(cfg.angleOffset) * PEND_R;
+    // chain (thin cylinder)
+    const chain = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.003, 0.003, cfg.drop, 6), chainMat
+    );
+    chain.position.set(px, PEND_TOP_Y - cfg.drop / 2, pz);
+    hgGroup.add(chain);
+    // star at end — octahedron with additive halo
+    const star = new THREE.Mesh(
+        new THREE.OctahedronGeometry(cfg.starSize, 0),
+        new THREE.MeshPhysicalMaterial({
+            color: 0xfff0c8, metalness: 0.6, roughness: 0.2,
+            emissive: 0xffd890, emissiveIntensity: 1.2,
+            clearcoat: 1.0
+        })
+    );
+    star.position.set(px, PEND_TOP_Y - cfg.drop, pz);
+    star.rotation.set(Math.PI / 4, Math.PI / 4, 0);
+    hgGroup.add(star);
+    // halo sprite around star
+    const halo = new THREE.Mesh(
+        new THREE.SphereGeometry(cfg.starSize * 2.6, 16, 12),
+        starGlowMat.clone()
+    );
+    halo.material.opacity = 0.25;
+    halo.position.copy(star.position);
+    hgGroup.add(halo);
+}
+
+// ── Crescent moon emblem inside bottom bulb ──
+function makeMoonTexture() {
+    const c = document.createElement('canvas');
+    c.width = c.height = 256;
+    const ctx = c.getContext('2d');
+    // outer warm halo
+    const grad = ctx.createRadialGradient(128, 128, 10, 128, 128, 128);
+    grad.addColorStop(0,   'rgba(255,235,180,0.85)');
+    grad.addColorStop(0.35,'rgba(255,210,140,0.45)');
+    grad.addColorStop(0.7, 'rgba(255,190,120,0.15)');
+    grad.addColorStop(1,   'rgba(255,180,100,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 256, 256);
+    // crescent: main disc minus offset disc
+    ctx.save();
+    ctx.translate(128, 128);
+    ctx.rotate(-Math.PI * 0.15);
+    const moonGrad = ctx.createRadialGradient(0, 0, 10, 0, 0, 56);
+    moonGrad.addColorStop(0,   'rgba(255,250,220,1)');
+    moonGrad.addColorStop(0.7, 'rgba(255,235,180,0.95)');
+    moonGrad.addColorStop(1,   'rgba(255,210,140,0.8)');
+    ctx.fillStyle = moonGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, 56, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.arc(22, -8, 52, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+}
+const moonMat = new THREE.SpriteMaterial({
+    map: makeMoonTexture(),
+    transparent: true, opacity: 0.92,
+    blending: THREE.AdditiveBlending, depthWrite: false
+});
+const moonSprite = new THREE.Sprite(moonMat);
+moonSprite.scale.set(0.6, 0.6, 1);
+moonSprite.position.set(0, -0.85, 0);
+hgGroup.add(moonSprite);
+
+// ── Background twinkling stars (scattered in scene, outside hourglass) ──
+const BG_STAR_N = 90;
+const bgStarGeo = new THREE.BufferGeometry();
+const bgStarPos = new Float32Array(BG_STAR_N * 3);
+const bgStarPhase = new Float32Array(BG_STAR_N);
+for (let i = 0; i < BG_STAR_N; i++) {
+    // ring/sphere around hourglass, biased outward
+    const theta = Math.random() * Math.PI * 2;
+    const phi = (Math.random() - 0.5) * Math.PI * 0.9;
+    const radius = 3.2 + Math.random() * 2.8;
+    bgStarPos[i * 3]     = Math.cos(theta) * Math.cos(phi) * radius;
+    bgStarPos[i * 3 + 1] = Math.sin(phi) * radius * 0.85;
+    bgStarPos[i * 3 + 2] = Math.sin(theta) * Math.cos(phi) * radius - 1.5;
+    bgStarPhase[i] = Math.random() * Math.PI * 2;
+}
+bgStarGeo.setAttribute('position', new THREE.BufferAttribute(bgStarPos, 3));
+const bgStarMat = new THREE.PointsMaterial({
+    color: 0xfff4d0, size: 0.07, transparent: true, opacity: 0.85,
+    blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+});
+const bgStars = new THREE.Points(bgStarGeo, bgStarMat);
+scene.add(bgStars);
+
 // ── Sand Grid Init ──
 cCol = gW >> 1;
 cRow = gH >> 1;
@@ -437,9 +580,10 @@ neckFlowPerFrame = totalSandCount / (DURATION * 60);
 // ── Sand InstancedMesh ──
 let sandGeo = new THREE.IcosahedronGeometry(P_SIZE, 0);
 const sandMat = new THREE.MeshPhysicalMaterial({
-    color: 0xffffff, roughness: 0.85, metalness: 0.0,
-    sheen: 0.6, sheenColor: new THREE.Color(0xffd8ec),
-    sheenRoughness: 0.7
+    color: 0xffffff, roughness: 0.78, metalness: 0.0,
+    sheen: 0.8, sheenColor: new THREE.Color(0xfff0b0),
+    sheenRoughness: 0.55,
+    emissive: 0xffd890, emissiveIntensity: 0.25
 });
 let sandMesh = new THREE.InstancedMesh(sandGeo, sandMat, (maxSandCount + 500) * PARTICLES_PER_CELL);
 sandMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -577,7 +721,7 @@ function doFlip() {
     if (state === 'COMPLETED') {
         fillBottom();
         sparkMat2.opacity = 0;
-        warmLight.intensity = 0.6;
+        warmLight.intensity = 1.4;
     }
     flipAnim = 0;
     state = 'RUNNING';
@@ -619,7 +763,7 @@ document.getElementById('s-sand').addEventListener('input', (e) => {
     state = 'IDLE';
     neckFlowBudget = 0;
     sparkMat2.opacity = 0;
-    warmLight.intensity = 0.6;
+    warmLight.intensity = 1.4;
     updateUI();
 });
 document.getElementById('s-psize').addEventListener('input', (e) => {
@@ -720,10 +864,10 @@ function animate(time) {
         const elapsed = Date.now() - tDone;
         const pulse = Math.sin(elapsed * 0.006) * 0.4 + 0.5;
         sparkMat2.opacity = pulse;
-        warmLight.intensity = 0.6 + pulse * 0.5;
+        warmLight.intensity = 1.4 + pulse * 0.8;
         if (elapsed > DONE_DELAY) {
             state = 'IDLE'; fillBottom(); sparkMat2.opacity = 0;
-            warmLight.intensity = 0.6;
+            warmLight.intensity = 1.4;
             updateUI();
         }
     } else {
@@ -740,6 +884,15 @@ function animate(time) {
     } else {
         timerEl.textContent = '';
     }
+
+    // Twinkle background stars + pulse moon glow
+    const tw = time * 0.001;
+    bgStarMat.opacity = 0.7 + Math.sin(tw * 1.4) * 0.15;
+    bgStarMat.size = 0.07 + Math.sin(tw * 0.7) * 0.012;
+    moonMat.opacity = 0.78 + Math.sin(tw * 0.8) * 0.14;
+    moonSprite.scale.setScalar(0.6 + Math.sin(tw * 0.6) * 0.025);
+    // Hourglass gentle sway (z axis is independent of flip animation on x)
+    hgGroup.rotation.z = Math.sin(tw * 0.4) * 0.012;
 
     // Subtle camera sway
     const st = time * 0.0002;
