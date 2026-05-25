@@ -595,20 +595,78 @@ const sandAmountSlider = document.getElementById('sand-amount');
 const sandAmountVal = document.getElementById('sand-amount-val');
 const sandSizeSlider = document.getElementById('sand-size');
 const sandSizeVal = document.getElementById('sand-size-val');
+const durationSlider = document.getElementById('duration');
+const durationVal = document.getElementById('duration-val');
+const slideSlider = document.getElementById('slide-max');
+const slideVal = document.getElementById('slide-val');
+const glassSlider = document.getElementById('glass');
+const glassVal = document.getElementById('glass-val');
 const controlsEl = document.getElementById('controls');
 
-sandAmountSlider.addEventListener('input', () => {
-    sandFillRatio = parseFloat(sandAmountSlider.value);
-    sandAmountVal.textContent = Math.round(sandFillRatio * 100) + '%';
-    fillBottom();
-    totalSandCount = sand.reduce((a, b) => a + b, 0);
-    neckFlowPerFrame = totalSandCount / (DURATION * 60);
+// 모래량 ↔ 시간을 고정 유량(cells/sec)으로 양방향 연동
+function cellsAtRatio(ratio) {
+    const bulbStart = cRow + 2, bulbEnd = gH - 1;
+    const startRow = Math.max(bulbStart, Math.floor(bulbEnd - (bulbEnd - bulbStart) * ratio));
+    let cells = 0;
+    for (let r = startRow; r <= bulbEnd; r++)
+        for (let c = 0; c < gW; c++)
+            if (bnd[r * gW + c]) cells++;
+    return cells;
+}
+const FIXED_RATE = totalSandCount / DURATION; // cells per second
+const ratioMin = parseFloat(sandAmountSlider.min);
+const ratioMax = parseFloat(sandAmountSlider.max);
+const ratioStep = parseFloat(sandAmountSlider.step);
+const ratioOptions = [];
+for (let r = ratioMin; r <= ratioMax + 1e-9; r += ratioStep) {
+    const ratio = Math.round(r / ratioStep) * ratioStep;
+    ratioOptions.push({ ratio, cells: cellsAtRatio(ratio) });
+}
+const durMin = Math.max(1, Math.round(ratioOptions[0].cells / FIXED_RATE));
+const durMax = Math.round(ratioOptions[ratioOptions.length - 1].cells / FIXED_RATE);
+durationSlider.min = durMin;
+durationSlider.max = durMax;
+durationSlider.step = 1;
+durationSlider.value = DURATION;
+
+function findClosestRatio(targetCells) {
+    let best = ratioOptions[0], bestDiff = Math.abs(best.cells - targetCells);
+    for (const o of ratioOptions) {
+        const d = Math.abs(o.cells - targetCells);
+        if (d < bestDiff) { best = o; bestDiff = d; }
+    }
+    return best.ratio;
+}
+
+function resetToIdle() {
     state = 'IDLE';
     neckFlowBudget = 0;
     sparkMat2.opacity = 0;
     warmLight.intensity = 0.6;
     timerEl.textContent = '';
     updateUI();
+}
+
+sandAmountSlider.addEventListener('input', () => {
+    sandFillRatio = parseFloat(sandAmountSlider.value);
+    sandAmountVal.textContent = Math.round(sandFillRatio * 100) + '%';
+    fillBottom();
+    totalSandCount = sand.reduce((a, b) => a + b, 0);
+    DURATION = Math.max(durMin, Math.min(durMax, Math.round(totalSandCount / FIXED_RATE)));
+    durationSlider.value = DURATION;
+    durationVal.textContent = DURATION + '초';
+    resetToIdle();
+});
+
+durationSlider.addEventListener('input', () => {
+    DURATION = parseInt(durationSlider.value, 10);
+    durationVal.textContent = DURATION + '초';
+    sandFillRatio = findClosestRatio(DURATION * FIXED_RATE);
+    sandAmountSlider.value = sandFillRatio;
+    sandAmountVal.textContent = Math.round(sandFillRatio * 100) + '%';
+    fillBottom();
+    totalSandCount = sand.reduce((a, b) => a + b, 0);
+    resetToIdle();
 });
 
 sandSizeSlider.addEventListener('input', () => {
@@ -616,23 +674,11 @@ sandSizeSlider.addEventListener('input', () => {
     sandSizeVal.textContent = particleScale.toFixed(1) + '×';
 });
 
-const durationSlider = document.getElementById('duration');
-const durationVal = document.getElementById('duration-val');
-durationSlider.addEventListener('input', () => {
-    DURATION = parseInt(durationSlider.value, 10);
-    durationVal.textContent = DURATION + '초';
-    neckFlowPerFrame = totalSandCount / (DURATION * 60);
-});
-
-const slideSlider = document.getElementById('slide-max');
-const slideVal = document.getElementById('slide-val');
 slideSlider.addEventListener('input', () => {
     SLIDE_MAX = parseInt(slideSlider.value, 10);
     slideVal.textContent = String(SLIDE_MAX);
 });
 
-const glassSlider = document.getElementById('glass');
-const glassVal = document.getElementById('glass-val');
 glassSlider.addEventListener('input', () => {
     const t = parseFloat(glassSlider.value);
     glassMat.transmission = t;
