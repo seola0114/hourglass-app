@@ -104,21 +104,25 @@
             width: 100%; accent-color: rgba(255,210,150,0.95);
             cursor: pointer;
         }
-        #panel-body #b-horiz {
-            width: 100%; padding: 10px 12px; margin-bottom: 14px;
+        #panel-body .rotate-buttons {
+            display: flex; gap: 8px; margin-bottom: 14px;
+        }
+        #panel-body .rotate-buttons button {
+            flex: 1;
+            padding: 10px 6px;
             border: 1px solid rgba(255,225,170,0.25);
             border-radius: 10px;
             background: rgba(255,255,255,0.06);
             color: rgba(245,235,215,0.9);
-            font-family: inherit; font-size: 11px; font-weight: 600; letter-spacing: 1px;
+            font-family: inherit; font-size: 11px; font-weight: 600; letter-spacing: 0.5px;
             cursor: pointer;
             transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
         }
-        #panel-body #b-horiz:hover {
+        #panel-body .rotate-buttons button:hover {
             background: rgba(255,255,255,0.12);
             border-color: rgba(255,225,170,0.45);
         }
-        #panel-body #b-horiz.active {
+        #panel-body .rotate-buttons button.active {
             background: rgba(255,210,150,0.22);
             border-color: rgba(255,225,170,0.6);
             color: #fff;
@@ -134,7 +138,10 @@
 <div id="grain"></div>
 <div id="panel">
     <div id="panel-body">
-        <button id="b-horiz" type="button">수평으로 눕히기</button>
+        <div class="rotate-buttons">
+            <button id="b-rot-left" type="button">↺ 좌 90°</button>
+            <button id="b-rot-right" type="button">우 90° ↻</button>
+        </div>
         <label>
             <div class="row"><span>총 시간</span><span class="val" id="v-duration">60s</span></div>
             <input type="range" min="10" max="180" step="1" value="60" id="s-duration">
@@ -193,9 +200,10 @@ let totalSandCount = 0, neckFlowBudget = 0, neckFlowPerSecond = 0;
 let prevFlip = false, hasOrient = false;
 let flipAnim = -1, flipDur = 0.55;
 let particlePos;
-// 수평(90°) 상태 — 수동 토글 + 디바이스 gamma 자동 인식
-let manualHorizontal = false;
-let visualTiltZ = 0; // 화면 내 z축 회전 (수동 토글에 의한)
+// 수평(90°) 상태 — 좌/우 토글 + 디바이스 gamma 추적
+// tiltState: -1 (우 90°), 0 (정상), +1 (좌 90°)
+let tiltState = 0;
+let visualTiltZ = 0; // 화면 내 z축 회전 (라디안)
 let deviceTiltDeg = 0; // device gamma (좌우 기울기, ±90)
 
 // ── UI refs ──
@@ -730,10 +738,14 @@ function shuffle(a) {
 }
 function simStep() {
     mv.fill(0);
-    // 수평 모드: visualTiltZ가 PI/4를 넘으면 중력이 -c 방향(그리드 column 0 쪽).
-    // 그렇지 않으면 기존 수직 모드 — 중력 +r 방향, gate throttle 적용.
+    // |visualTiltZ| > PI/4 면 수평 모드. 부호로 중력 방향 결정.
+    //   +PI/2 (좌 90°, CCW) → 화면 하단 = 그리드 -c → dir=-1
+    //   -PI/2 (우 90°, CW)  → 화면 하단 = 그리드 +c → dir=+1
+    // 그 외는 기존 수직 모드.
     if (visualTiltZ > Math.PI / 4) {
-        simStepHorizontal();
+        simStepHorizontal(-1);
+    } else if (visualTiltZ < -Math.PI / 4) {
+        simStepHorizontal(+1);
     } else {
         simStepVertical();
     }
@@ -780,24 +792,31 @@ function simStepVertical() {
     }
 }
 
-function simStepHorizontal() {
-    // 중력 -c. c=1부터 gW-1까지 (gravity-down 셀부터 처리)
-    // gate throttle 없음 — 수평 상태에서는 neck이 의미 없음
-    for (let c = 1; c < gW; c++) {
+function simStepHorizontal(dir) {
+    // dir: 중력의 grid c 방향. -1이면 c가 감소하는 쪽(좌측 90° 회전), +1이면 증가 쪽.
+    // gate throttle 없음 — 수평에서는 neck이 의미 없음.
+    // 순회 순서: gravity-down 셀(중력 방향으로 가장 멀리 간 셀)부터 처리.
+    const cStart = dir === -1 ? 1 : gW - 2;
+    const cEnd   = dir === -1 ? gW : -1;
+    const cStep  = dir === -1 ? 1 : -1;
+    for (let c = cStart; c !== cEnd; c += cStep) {
         shuffle(rowArr);
         for (let ri = 0; ri < gH; ri++) {
             const r = rowArr[ri];
             const i = r * gW + c;
             if (!sand[i] || mv[i]) continue;
-            const l = i - 1; // (r, c-1)
-            // 1) 직접: c-1로 이동
-            if (bnd[l] && !sand[l]) {
-                sand[l] = 1; clr[l] = clr[i]; sand[i] = 0; mv[l] = 1;
+            const targetC = c + dir;
+            const tgt = r * gW + targetC; // gravity-down 이웃
+            // 1) 직접: targetC로 이동
+            if (bnd[tgt] && !sand[tgt]) {
+                sand[tgt] = 1; clr[tgt] = clr[i]; sand[i] = 0; mv[tgt] = 1;
                 continue;
             }
-            // 2) 사선 슬라이드 — r±step 방향으로 미끄러진 다음 c-1로 정착
-            const isPileTop = c >= gW - 1 || !sand[i + 1];
-            const onWall = !bnd[l];
+            // 2) 사선 슬라이드 — r±step 방향으로 미끄러진 뒤 targetC로 정착
+            const oppC = c - dir; // gravity-up 이웃 (위에 모래 있나 확인)
+            const oppValid = oppC >= 0 && oppC < gW;
+            const isPileTop = !oppValid || !sand[r * gW + oppC];
+            const onWall = !bnd[tgt];
             const slideMax = (isPileTop || onWall) ? SLIDE_MAX : 1;
             const d1 = Math.random() < 0.5 ? 1 : -1;
             for (const dirSign of [d1, -d1]) {
@@ -806,7 +825,7 @@ function simStepHorizontal() {
                     const nr = r + dirSign * step;
                     if (nr < 0 || nr >= gH) break;
                     if (sand[nr * gW + c]) break;
-                    const di = nr * gW + (c - 1);
+                    const di = nr * gW + targetC;
                     if (!bnd[di]) continue;
                     if (!sand[di]) { landDi = di; break; }
                 }
@@ -863,13 +882,24 @@ const panelBody = document.getElementById('panel-body');
 panelBody.addEventListener('pointerdown', (e) => e.stopPropagation());
 panelBody.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
 
-const horizBtn = document.getElementById('b-horiz');
-horizBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
-horizBtn.addEventListener('click', (e) => {
+const rotLeftBtn = document.getElementById('b-rot-left');
+const rotRightBtn = document.getElementById('b-rot-right');
+function updateRotButtons() {
+    rotLeftBtn.classList.toggle('active', tiltState === 1);
+    rotRightBtn.classList.toggle('active', tiltState === -1);
+}
+[rotLeftBtn, rotRightBtn].forEach(btn => {
+    btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+});
+rotLeftBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    manualHorizontal = !manualHorizontal;
-    horizBtn.classList.toggle('active', manualHorizontal);
-    horizBtn.textContent = manualHorizontal ? '세우기' : '수평으로 눕히기';
+    tiltState = (tiltState === 1) ? 0 : 1;
+    updateRotButtons();
+});
+rotRightBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    tiltState = (tiltState === -1) ? 0 : -1;
+    updateRotButtons();
 });
 
 function rebuildSandMesh() {
@@ -982,8 +1012,8 @@ function animate(time) {
         }
     }
 
-    // 수평 회전 — 수동 토글(visualTiltZ)만 시각에 반영. 흐름은 어느 자세에서든 유지.
-    const manualTarget = manualHorizontal ? Math.PI / 2 : 0;
+    // 수평 회전 — 좌/우 토글(tiltState)을 visualTiltZ로 보간. 흐름은 어느 자세에서든 유지.
+    const manualTarget = tiltState * Math.PI / 2;
     const tiltLerp = 1 - Math.exp(-dt * 5); // frame-rate independent smoothing
     visualTiltZ += (manualTarget - visualTiltZ) * tiltLerp;
 
