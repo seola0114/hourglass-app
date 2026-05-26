@@ -187,7 +187,7 @@ let PARTICLES_PER_CELL = 10; // 셀당 입자 N개 → 미세한 가루처럼 �
 // ── State ──
 let state = 'IDLE', W, H, dpr;
 let gW = 65, gH = 130, cCol, cRow, maxHW, neckHW = 2;
-let sand, clr, bnd, mv, colArr;
+let sand, clr, bnd, mv, colArr, rowArr;
 let t0 = 0, tDone = 0, fc = 0;
 let totalSandCount = 0, neckFlowBudget = 0, neckFlowPerSecond = 0;
 let prevFlip = false, hasOrient = false;
@@ -538,6 +538,7 @@ clr = new Uint8Array(n);
 bnd = new Uint8Array(n);
 mv = new Uint8Array(n);
 colArr = Array.from({ length: gW }, (_, i) => i);
+rowArr = Array.from({ length: gH }, (_, i) => i);
 
 function hw2(row) {
     const d = Math.abs(row / (gH - 1) - 0.5) * 2;
@@ -729,6 +730,16 @@ function shuffle(a) {
 }
 function simStep() {
     mv.fill(0);
+    // 수평 모드: visualTiltZ가 PI/4를 넘으면 중력이 -c 방향(그리드 column 0 쪽).
+    // 그렇지 않으면 기존 수직 모드 — 중력 +r 방향, gate throttle 적용.
+    if (visualTiltZ > Math.PI / 4) {
+        simStepHorizontal();
+    } else {
+        simStepVertical();
+    }
+}
+
+function simStepVertical() {
     for (let r = gH - 2; r >= 0; r--) {
         shuffle(colArr);
         for (let ci = 0; ci < gW; ci++) {
@@ -744,11 +755,7 @@ function simStep() {
                 if (isGate) neckFlowBudget -= 1;
                 continue;
             }
-            // 2) 사선 슬라이드 — 가장 가까운 빈 셀로 1칸씩 미끄러져 정착 (중력 자연스러움).
-            //    중앙에 먼저 쌓이고 위로 갈수록 좌우로 퍼지는 원뿔 모양이 됨.
-            //    SLIDE_MAX는 step 1이 막혔을 때(funnel 벽으로 인해 bnd 밖) 더 안쪽 step까지
-            //    탐색하기 위한 상한선이지, 무조건 멀리 점프하기 위한 게 아님.
-            //    stream(위에 모래가 이어진 셀)은 1칸만.
+            // 2) 사선 슬라이드 — 가장 가까운 빈 셀로 정착 (중앙부터 원뿔 형성).
             const isPileTop = r === 0 || !sand[i - gW];
             const onWall = !bnd[b];
             const slideMax = (isPileTop || onWall) ? SLIDE_MAX : 1;
@@ -758,15 +765,53 @@ function simStep() {
                 for (let step = 1; step <= slideMax; step++) {
                     const nc = c + dirSign * step;
                     if (nc < 0 || nc >= gW) break;
-                    // 같은 row의 경로 셀이 막혀있으면 더 못 굴러감
                     if (sand[r * gW + nc]) break;
                     const di = (r + 1) * gW + nc;
-                    if (!bnd[di]) continue; // bnd 밖이면 건너뛰고 다음 step 탐색
-                    if (!sand[di]) { landDi = di; break; } // 가장 가까운 빈 셀에 정착
+                    if (!bnd[di]) continue;
+                    if (!sand[di]) { landDi = di; break; }
                 }
                 if (landDi >= 0) {
                     sand[landDi] = 1; clr[landDi] = clr[i]; sand[i] = 0; mv[landDi] = 1;
                     if (isGate) neckFlowBudget -= 1;
+                    break;
+                }
+            }
+        }
+    }
+}
+
+function simStepHorizontal() {
+    // 중력 -c. c=1부터 gW-1까지 (gravity-down 셀부터 처리)
+    // gate throttle 없음 — 수평 상태에서는 neck이 의미 없음
+    for (let c = 1; c < gW; c++) {
+        shuffle(rowArr);
+        for (let ri = 0; ri < gH; ri++) {
+            const r = rowArr[ri];
+            const i = r * gW + c;
+            if (!sand[i] || mv[i]) continue;
+            const l = i - 1; // (r, c-1)
+            // 1) 직접: c-1로 이동
+            if (bnd[l] && !sand[l]) {
+                sand[l] = 1; clr[l] = clr[i]; sand[i] = 0; mv[l] = 1;
+                continue;
+            }
+            // 2) 사선 슬라이드 — r±step 방향으로 미끄러진 다음 c-1로 정착
+            const isPileTop = c >= gW - 1 || !sand[i + 1];
+            const onWall = !bnd[l];
+            const slideMax = (isPileTop || onWall) ? SLIDE_MAX : 1;
+            const d1 = Math.random() < 0.5 ? 1 : -1;
+            for (const dirSign of [d1, -d1]) {
+                let landDi = -1;
+                for (let step = 1; step <= slideMax; step++) {
+                    const nr = r + dirSign * step;
+                    if (nr < 0 || nr >= gH) break;
+                    if (sand[nr * gW + c]) break;
+                    const di = nr * gW + (c - 1);
+                    if (!bnd[di]) continue;
+                    if (!sand[di]) { landDi = di; break; }
+                }
+                if (landDi >= 0) {
+                    sand[landDi] = 1; clr[landDi] = clr[i]; sand[i] = 0; mv[landDi] = 1;
                     break;
                 }
             }
