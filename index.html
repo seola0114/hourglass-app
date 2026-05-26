@@ -937,22 +937,15 @@ function animate(time) {
         }
     }
 
-    // 수평 회전 — 수동 토글(visualTiltZ) + 디바이스 gamma 둘 다 반영
+    // 수평 회전 — 수동 토글(visualTiltZ)만 시각에 반영. 흐름은 어느 자세에서든 유지.
     const manualTarget = manualHorizontal ? Math.PI / 2 : 0;
     const tiltLerp = 1 - Math.exp(-dt * 5); // frame-rate independent smoothing
     visualTiltZ += (manualTarget - visualTiltZ) * tiltLerp;
-    // 두 가지 기울기 모두 중력 감쇠로 환산 (cos(angle) — 수직=1, 수평=0)
-    const manualGrav = Math.cos(visualTiltZ);
-    const deviceGrav = Math.cos(deviceTiltDeg * Math.PI / 180);
-    // 더 누운 쪽 기준 (둘 중 작은 값)
-    const gravityFactor = Math.max(0, Math.min(manualGrav, deviceGrav));
 
     // Sand simulation — 항상 돌림 (어떤 자세에서든 흐르도록).
-    // 모래가 모두 바닥에 안착해 있으면 simStep은 아무것도 하지 않으므로 안전함.
     if (flipAnim < 0) {
-        // dt 기반 누적 → 모든 frame rate(60/120Hz 등)에서 동일한 DURATION 보장.
-        // gravityFactor가 1보다 작으면 budget 충전이 느려져 점차 흐름 멈춤 (관성 존속).
-        neckFlowBudget = Math.min(neckFlowBudget + neckFlowPerSecond * dt * gravityFactor, 3);
+        // dt 기반 누적 → 모든 frame rate(60/120Hz 등)에서 동일한 DURATION 보장
+        neckFlowBudget = Math.min(neckFlowBudget + neckFlowPerSecond * dt, 3);
         for (let i = 0; i < STEPS; i++) simStep();
         if (state === 'RUNNING' && fc % 20 === 0 && isDone()) {
             state = 'COMPLETED'; tDone = Date.now();
