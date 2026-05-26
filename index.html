@@ -104,6 +104,25 @@
             width: 100%; accent-color: rgba(255,210,150,0.95);
             cursor: pointer;
         }
+        #panel-body #b-horiz {
+            width: 100%; padding: 10px 12px; margin-bottom: 14px;
+            border: 1px solid rgba(255,225,170,0.25);
+            border-radius: 10px;
+            background: rgba(255,255,255,0.06);
+            color: rgba(245,235,215,0.9);
+            font-family: inherit; font-size: 11px; font-weight: 600; letter-spacing: 1px;
+            cursor: pointer;
+            transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+        }
+        #panel-body #b-horiz:hover {
+            background: rgba(255,255,255,0.12);
+            border-color: rgba(255,225,170,0.45);
+        }
+        #panel-body #b-horiz.active {
+            background: rgba(255,210,150,0.22);
+            border-color: rgba(255,225,170,0.6);
+            color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -115,6 +134,7 @@
 <div id="grain"></div>
 <div id="panel">
     <div id="panel-body">
+        <button id="b-horiz" type="button">수평으로 눕히기</button>
         <label>
             <div class="row"><span>총 시간</span><span class="val" id="v-duration">60s</span></div>
             <input type="range" min="10" max="180" step="1" value="60" id="s-duration">
@@ -173,6 +193,10 @@ let totalSandCount = 0, neckFlowBudget = 0, neckFlowPerSecond = 0;
 let prevFlip = false, hasOrient = false;
 let flipAnim = -1, flipDur = 0.55;
 let particlePos;
+// 수평(90°) 상태 — 수동 토글 + 디바이스 gamma 자동 인식
+let manualHorizontal = false;
+let visualTiltZ = 0; // 화면 내 z축 회전 (수동 토글에 의한)
+let deviceTiltDeg = 0; // device gamma (좌우 기울기, ±90)
 
 // ── UI refs ──
 const statusEl = document.getElementById('status');
@@ -794,6 +818,15 @@ const panelBody = document.getElementById('panel-body');
 panelBody.addEventListener('pointerdown', (e) => e.stopPropagation());
 panelBody.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
 
+const horizBtn = document.getElementById('b-horiz');
+horizBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+horizBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    manualHorizontal = !manualHorizontal;
+    horizBtn.classList.toggle('active', manualHorizontal);
+    horizBtn.textContent = manualHorizontal ? '세우기' : '수평으로 눕히기';
+});
+
 function rebuildSandMesh() {
     hgGroup.remove(sandMesh);
     sandMesh.dispose();
@@ -854,6 +887,8 @@ function onOri(e) {
         // 폰을 거꾸로 뒤집은 순간에만 flip 트리거 (원위치 복귀로는 멈추지 않음)
         if (f) doFlip();
     }
+    // gamma는 좌우 기울기 (±90). 폰을 옆으로 눕히면 |gamma|→90 → 중력 약화
+    if (e.gamma != null) deviceTiltDeg = e.gamma;
 }
 if (window.DeviceOrientationEvent) {
     if (typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -902,11 +937,22 @@ function animate(time) {
         }
     }
 
+    // 수평 회전 — 수동 토글(visualTiltZ) + 디바이스 gamma 둘 다 반영
+    const manualTarget = manualHorizontal ? Math.PI / 2 : 0;
+    const tiltLerp = 1 - Math.exp(-dt * 5); // frame-rate independent smoothing
+    visualTiltZ += (manualTarget - visualTiltZ) * tiltLerp;
+    // 두 가지 기울기 모두 중력 감쇠로 환산 (cos(angle) — 수직=1, 수평=0)
+    const manualGrav = Math.cos(visualTiltZ);
+    const deviceGrav = Math.cos(deviceTiltDeg * Math.PI / 180);
+    // 더 누운 쪽 기준 (둘 중 작은 값)
+    const gravityFactor = Math.max(0, Math.min(manualGrav, deviceGrav));
+
     // Sand simulation — 항상 돌림 (어떤 자세에서든 흐르도록).
     // 모래가 모두 바닥에 안착해 있으면 simStep은 아무것도 하지 않으므로 안전함.
     if (flipAnim < 0) {
-        // dt 기반 누적 → 모든 frame rate(60/120Hz 등)에서 동일한 DURATION 보장
-        neckFlowBudget = Math.min(neckFlowBudget + neckFlowPerSecond * dt, 3);
+        // dt 기반 누적 → 모든 frame rate(60/120Hz 등)에서 동일한 DURATION 보장.
+        // gravityFactor가 1보다 작으면 budget 충전이 느려져 점차 흐름 멈춤 (관성 존속).
+        neckFlowBudget = Math.min(neckFlowBudget + neckFlowPerSecond * dt * gravityFactor, 3);
         for (let i = 0; i < STEPS; i++) simStep();
         if (state === 'RUNNING' && fc % 20 === 0 && isDone()) {
             state = 'COMPLETED'; tDone = Date.now();
@@ -956,7 +1002,7 @@ function animate(time) {
     dustPoints.rotation.y = 0;
     dustMat.opacity = 0.14;
     bloomPass.strength = 0.32;
-    hgGroup.rotation.z = 0;
+    hgGroup.rotation.z = visualTiltZ;
     camera.position.x = 0.15;
     camera.position.y = 0.15;
     camera.lookAt(0, 0, 0);
