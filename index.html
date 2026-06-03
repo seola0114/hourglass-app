@@ -78,6 +78,27 @@
             color: rgba(245,235,215,0.9);
             display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
         }
+        #panel-toggle {
+            display: none; /* 데스크탑: 숨김 (패널 상시 표시) */
+            width: 42px; height: 42px;
+            border: 1px solid rgba(255,225,170,0.3);
+            border-radius: 50%;
+            background: rgba(18,35,62,0.45);
+            backdrop-filter: blur(12px) saturate(140%);
+            -webkit-backdrop-filter: blur(12px) saturate(140%);
+            color: rgba(255,225,170,0.95);
+            font-size: 20px; line-height: 1;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(20,25,60,0.4);
+            transition: transform 0.25s ease, background 0.2s ease;
+        }
+        #panel-toggle:hover { background: rgba(40,60,100,0.55); }
+        #panel.open #panel-toggle { transform: rotate(60deg); }
+        @media (max-width: 768px) {
+            #panel-toggle { display: block; }
+            #panel-body { display: none; }
+            #panel.open #panel-body { display: block; }
+        }
         #panel-body {
             padding: 16px 18px;
             border-radius: 16px;
@@ -137,10 +158,14 @@
 </div>
 <div id="grain"></div>
 <div id="panel">
+    <button id="panel-toggle" type="button" aria-label="설정 패널">⚙</button>
     <div id="panel-body">
         <div class="rotate-buttons">
             <button id="b-rot-left" type="button">↺ 좌 90°</button>
             <button id="b-rot-right" type="button">우 90° ↻</button>
+        </div>
+        <div class="rotate-buttons">
+            <button id="b-reset" type="button">⟲ 초기화</button>
         </div>
         <label>
             <div class="row"><span>총 시간</span><span class="val" id="v-duration">60s</span></div>
@@ -890,9 +915,16 @@ function updateUI() {
 }
 
 // ── Settings Panel ──
+const panel = document.getElementById('panel');
+const panelToggle = document.getElementById('panel-toggle');
 const panelBody = document.getElementById('panel-body');
 panelBody.addEventListener('pointerdown', (e) => e.stopPropagation());
 panelBody.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+panelToggle.addEventListener('pointerdown', (e) => e.stopPropagation());
+panelToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    panel.classList.toggle('open');
+});
 
 const rotLeftBtn = document.getElementById('b-rot-left');
 const rotRightBtn = document.getElementById('b-rot-right');
@@ -915,6 +947,24 @@ rotRightBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     accumTilt -= 1;
     updateRotButtons();
+});
+
+const resetBtn = document.getElementById('b-reset');
+resetBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+resetBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    // 회전·애니메이션·모래·타이머 모두 초기 상태로 되돌림
+    accumTilt = 0;
+    visualTiltZ = 0;
+    flipAnim = -1;
+    hgGroup.rotation.x = 0;
+    state = 'IDLE';
+    neckFlowBudget = 0;
+    fillBottom();
+    sparkMat2.opacity = 0;
+    warmLight.intensity = 1.4;
+    updateRotButtons();
+    updateUI();
 });
 
 function rebuildSandMesh() {
