@@ -572,6 +572,14 @@ function fmtClock(sec: number): string {
   return `${(s / 60) | 0}:${String(s % 60).padStart(2, '0')}`;
 }
 
+// 남은 시간 표시 토글(패널 맨 아래): 끄면 카운트다운을 가린다. 타이머는 계속 진행.
+const showTimeChk = document.getElementById('s-showtime') as HTMLInputElement;
+function applyShowTime() {
+  timerEl.classList.toggle('time-hidden', !showTimeChk.checked);
+}
+showTimeChk.addEventListener('change', applyShowTime);
+applyShowTime();
+
 function updateUI() {
   statusEl.textContent =
     state === 'IDLE'

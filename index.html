@@ -66,6 +66,7 @@
             min-height: 30px;
             text-shadow: 0 1px 4px rgba(40,40,80,0.5);
         }
+        #timer.time-hidden { visibility: hidden; }
         #hint {
             position: fixed; bottom: 32px; left: 0; width: 100%;
             text-align: center; color: rgba(240,225,210,0.55);
@@ -234,6 +235,31 @@
             border-color: rgba(255,225,170,0.6);
             color: #fff;
         }
+        /* 토글 스위치 (남은 시간 표시 등) */
+        #panel-body .toggle-row { display: flex; align-items: center; justify-content: space-between; }
+        #panel-body .switch { position: relative; display: inline-block; width: 40px; height: 22px; flex: none; }
+        #panel-body .switch input {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            margin: 0; opacity: 0; cursor: pointer; z-index: 1;
+        }
+        #panel-body .switch .track {
+            position: absolute; inset: 0; border-radius: 11px;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,225,170,0.25);
+            transition: background 0.2s ease, border-color 0.2s ease;
+        }
+        #panel-body .switch .track::after {
+            content: ''; position: absolute; top: 1px; left: 1px;
+            width: 18px; height: 18px; border-radius: 50%;
+            background: rgba(245,235,215,0.85);
+            transition: transform 0.2s ease, background 0.2s ease;
+        }
+        #panel-body .switch input:checked + .track {
+            background: rgba(255,210,150,0.5); border-color: rgba(255,225,170,0.6);
+        }
+        #panel-body .switch input:checked + .track::after {
+            transform: translateX(18px); background: #fff;
+        }
         /* 진행 중 설정 변경 경고 모달 */
         #modal-overlay {
             position: fixed; inset: 0; z-index: 50;
@@ -335,6 +361,10 @@
         <label id="l-neck">
             <div class="row"><span class="name"><button type="button" class="lock" id="lk-neck" aria-label="목 굵기 잠금">🔓</button>목 굵기</span><span class="val" id="v-neck">2</span></div>
             <input type="range" min="1" max="6" step="1" value="2" id="s-neck">
+        </label>
+        <label id="l-showtime" class="toggle-row">
+            <span class="name">남은 시간 표시</span>
+            <span class="switch"><input type="checkbox" id="s-showtime" checked aria-label="남은 시간 표시"><span class="track"></span></span>
         </label>
     </div>
 </div>
