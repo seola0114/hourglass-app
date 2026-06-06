@@ -864,7 +864,7 @@ function animate(time: number) {
   const tiltLerp = 1 - Math.exp(-dt * 5);
   visualTiltZ += (manualTarget - visualTiltZ) * tiltLerp;
 
-  // 90°(가로) 자세 → 일시정지. 세로(0°/180°)일 때만 모래가 흐름.
+  // 90°(가로) 자세 → 타이머는 일시정지(세로에서만 시간 측정). 모래는 가로 중력으로 슬럼프.
   const m4 = ((accumTilt % 4) + 4) % 4;
   const horizontal = m4 === 1 || m4 === 3;
   if (state === 'RUNNING' && horizontal) {
@@ -877,11 +877,12 @@ function animate(time: number) {
     updateUI();
   }
 
-  // Sand simulation — 세로 자세에서만. 가로(일시정지)면 동결.
-  if (flipAnim < 0 && !horizontal) {
+  // Sand simulation — 자세와 무관하게 진행. 각도(visualTiltZ)에 따라 중력 방향이 바뀐다.
+  if (flipAnim < 0) {
     sim.addFlowBudget(dt);
     for (let i = 0; i < STEPS; i++) sim.step(visualTiltZ);
-    if (state === 'RUNNING' && fc % 20 === 0 && sim.isDone()) {
+    // 완료 판정은 세로 자세에서만 (가로에선 목 위가 잠깐 비어도 done 아님).
+    if (state === 'RUNNING' && !horizontal && fc % 20 === 0 && sim.isDone()) {
       state = 'COMPLETED';
       tDone = Date.now();
       initSparks();
