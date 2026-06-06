@@ -584,11 +584,11 @@ rotRightBtn.addEventListener('click', (e) => {
   updateRotButtons();
 });
 
-const resetBtn = document.getElementById('b-reset')!;
-resetBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
-resetBtn.addEventListener('click', (e) => {
+// 각도 초기화: 회전·애니메이션·모래·타이머만 초기 상태로. 패널 설정은 유지.
+const resetAngleBtn = document.getElementById('b-reset-angle')!;
+resetAngleBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+resetAngleBtn.addEventListener('click', (e) => {
   e.stopPropagation();
-  // 회전·애니메이션·모래·타이머 모두 초기 상태로 되돌림
   accumTilt = 0;
   visualTiltZ = 0;
   flipAnim = -1;
@@ -599,6 +599,45 @@ resetBtn.addEventListener('click', (e) => {
   sparkMat2.opacity = 0;
   warmLight.intensity = 1.4;
   updateRotButtons();
+  updateUI();
+});
+
+// 설정 초기화: 모든 슬라이더를 기본값으로 + 잠금 해제 + 비주얼/시뮬 재구성.
+const resetPanelBtn = document.getElementById('b-reset-panel')!;
+resetPanelBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+resetPanelBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  lockedVar = null;
+  applyLockUI();
+  // 결합 변수 기본값 (목 굵기 2 → 모래 100% → 총 시간 60s 도출)
+  sim.setNeck(2);
+  sim.setSandFill(1.0);
+  // 그 외 패널 값
+  sim.slideMax = 3;
+  P_SIZE = 0.007;
+  const oldGeo = sandGeo;
+  sandGeo = new THREE.IcosahedronGeometry(P_SIZE, 0);
+  sandMesh.geometry = sandGeo;
+  oldGeo.dispose();
+  PARTICLES_PER_CELL = 10;
+  inputEl('s-psize').value = '70';
+  document.getElementById('v-psize')!.textContent = P_SIZE.toFixed(4);
+  inputEl('s-ppc').value = '10';
+  document.getElementById('v-ppc')!.textContent = '10';
+  inputEl('s-slide').value = '3';
+  document.getElementById('v-slide')!.textContent = '3';
+  // 회전·run 초기화
+  accumTilt = 0;
+  visualTiltZ = 0;
+  flipAnim = -1;
+  hgGroup.rotation.x = 0;
+  state = 'IDLE';
+  sim.resetFlowBudget();
+  sparkMat2.opacity = 0;
+  warmLight.intensity = 1.4;
+  applyNeckVisuals();
+  updateRotButtons();
+  syncPanel();
   updateUI();
 });
 
