@@ -529,6 +529,7 @@ function doFlip() {
   flipAnim = 0;
   state = 'RUNNING';
   t0 = Date.now();
+  runEditConfirmed = false; // 새 진행 시작 → 경고 재무장
   sim.resetFlowBudget();
   updateUI();
 }
@@ -755,6 +756,49 @@ document.getElementById('lk-time')!.addEventListener('click', () => toggleLock('
 document.getElementById('lk-neck')!.addEventListener('click', () => toggleLock('neck'));
 document.getElementById('lk-sand')!.addEventListener('click', () => toggleLock('sand'));
 
+// ── 진행 중 설정 변경 경고 모달 ──
+// 진행/일시정지 중 타이머를 초기화하는 조작(결합 슬라이더·프리셋·초기화 버튼)을
+// 건드리면 먼저 경고. "변경할게요"를 누르면 이번 진행 동안은 다시 묻지 않는다.
+const modalOverlay = document.getElementById('modal-overlay')!;
+let runEditConfirmed = false;
+const DESTRUCTIVE_SEL = '#s-duration, #s-sand, #s-neck, .preset, #b-reset-angle, #b-reset-panel';
+
+function openResetModal() {
+  modalOverlay.hidden = false;
+}
+function closeResetModal() {
+  modalOverlay.hidden = true;
+}
+// 진행 중 파괴적 조작을 가로채 모달을 띄운다. (캡처 단계 → 슬라이더 드래그·버튼 클릭 발생 전 차단)
+function guardDestructive(e: Event) {
+  if (state !== 'RUNNING' && state !== 'PAUSE') return;
+  if (runEditConfirmed) return;
+  const el = e.target as HTMLElement | null;
+  if (!el || !el.closest(DESTRUCTIVE_SEL)) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  openResetModal();
+}
+panelBody.addEventListener('pointerdown', guardDestructive, true);
+panelBody.addEventListener('click', guardDestructive, true);
+
+document.getElementById('modal-cancel')!.addEventListener('click', (e) => {
+  e.stopPropagation();
+  closeResetModal();
+});
+document.getElementById('modal-confirm')!.addEventListener('click', (e) => {
+  e.stopPropagation();
+  runEditConfirmed = true; // 이번 진행 동안 재확인 생략 → 사용자가 다시 조작하면 적용
+  closeResetModal();
+});
+// 배경 클릭·Esc는 취소로 간주.
+modalOverlay.addEventListener('click', (e) => {
+  if (e.target === modalOverlay) closeResetModal();
+});
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !modalOverlay.hidden) closeResetModal();
+});
+
 // 목 굵기가 바뀌었으면 유리 비주얼을 다시 만든 뒤 진행 상태 초기화.
 // 결합 슬라이더를 직접 조작하면 프리셋 하이라이트는 해제(프리셋 경로는 이후 다시 설정).
 function afterCoupledChange(neckBefore: number) {
@@ -927,6 +971,7 @@ function animate(time: number) {
     pendingFlip = false;
     state = 'RUNNING';
     t0 = Date.now();
+    runEditConfirmed = false; // 새 진행 시작 → 경고 재무장
     sim.resetFlowBudget();
     updateRotButtons();
     updateUI();
