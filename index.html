@@ -152,7 +152,7 @@
         #panel-body #l-duration { position: relative; }
         #panel-body .floor-tip {
             position: absolute;
-            top: calc(100% + 9px);
+            bottom: calc(100% + 9px);
             left: 50%;
             transform: translateX(-50%);
             width: 200px;
@@ -167,9 +167,9 @@
         }
         #panel-body .floor-tip::after {
             content: ''; position: absolute;
-            bottom: 100%; left: 50%; transform: translateX(-50%);
+            top: 100%; left: 50%; transform: translateX(-50%);
             border: 7px solid transparent;
-            border-bottom-color: #fbfbfc;
+            border-top-color: #fbfbfc;
         }
         #panel-body .floor-tip[hidden] { display: none; }
         #panel-body .help {
