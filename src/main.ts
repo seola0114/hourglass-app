@@ -43,6 +43,8 @@ let particlePos: Float32Array;
 // 90° 단위 회전 — 좌/우 버튼 클릭마다 누적 (unbounded). 좌+1, 우-1.
 let accumTilt = 0; // quarter turns (정수)
 let visualTiltZ = 0; // 화면 내 z축 회전 (라디안, target = accumTilt * π/2)
+// 좌/우 회전이 180°(거꾸로)에 도달 → 탭-뒤집기처럼 정규화 대기. settle 시 flipGrid+시작.
+let pendingFlip = false;
 
 // ── UI refs ──
 const statusEl = document.getElementById('status')!;
@@ -523,6 +525,7 @@ function doFlip() {
     sparkMat2.opacity = 0;
     warmLight.intensity = 1.4;
   }
+  pendingFlip = false;
   flipAnim = 0;
   state = 'RUNNING';
   t0 = Date.now();
@@ -573,15 +576,19 @@ function updateRotButtons() {
 [rotLeftBtn, rotRightBtn].forEach((btn) => {
   btn.addEventListener('pointerdown', (e) => e.stopPropagation());
 });
+function rotateBy(delta: number) {
+  accumTilt += delta;
+  // 180°(거꾸로)에 도달하면 한 번의 뒤집기로 정규화 예약 (settle 시 처리).
+  pendingFlip = tiltMod4() === 2;
+  updateRotButtons();
+}
 rotLeftBtn.addEventListener('click', (e) => {
   e.stopPropagation();
-  accumTilt += 1;
-  updateRotButtons();
+  rotateBy(1);
 });
 rotRightBtn.addEventListener('click', (e) => {
   e.stopPropagation();
-  accumTilt -= 1;
-  updateRotButtons();
+  rotateBy(-1);
 });
 
 // 각도 초기화: 회전·애니메이션·모래·타이머만 초기 상태로. 패널 설정은 유지.
@@ -591,6 +598,7 @@ resetAngleBtn.addEventListener('click', (e) => {
   e.stopPropagation();
   accumTilt = 0;
   visualTiltZ = 0;
+  pendingFlip = false;
   flipAnim = -1;
   hgGroup.rotation.x = 0;
   state = 'IDLE';
@@ -629,6 +637,7 @@ resetPanelBtn.addEventListener('click', (e) => {
   // 회전·run 초기화
   accumTilt = 0;
   visualTiltZ = 0;
+  pendingFlip = false;
   flipAnim = -1;
   hgGroup.rotation.x = 0;
   state = 'IDLE';
@@ -894,6 +903,24 @@ function animate(time: number) {
   const tiltLerp = 1 - Math.exp(-dt * 5);
   visualTiltZ += (manualTarget - visualTiltZ) * tiltLerp;
 
+  // 거꾸로(180°) 회전이 자리잡으면 한 번의 뒤집기로 정규화하고 시작.
+  // 180°·원본격자 == 0°·뒤집힌격자 (시각적으로 동일)라 스냅이 보이지 않는다.
+  if (pendingFlip && flipAnim < 0 && Math.abs(manualTarget - visualTiltZ) < 0.02) {
+    if (state === 'COMPLETED') {
+      sparkMat2.opacity = 0;
+      warmLight.intensity = 1.4;
+    }
+    sim.flipGrid();
+    accumTilt = 0;
+    visualTiltZ = 0;
+    pendingFlip = false;
+    state = 'RUNNING';
+    t0 = Date.now();
+    sim.resetFlowBudget();
+    updateRotButtons();
+    updateUI();
+  }
+
   // 90°(가로) 자세 → 타이머는 일시정지(세로에서만 시간 측정). 모래는 가로 중력으로 슬럼프.
   const m4 = ((accumTilt % 4) + 4) % 4;
   const horizontal = m4 === 1 || m4 === 3;
@@ -908,7 +935,8 @@ function animate(time: number) {
   }
 
   // Sand simulation — 자세와 무관하게 진행. 각도(visualTiltZ)에 따라 중력 방향이 바뀐다.
-  if (flipAnim < 0) {
+  // pendingFlip(거꾸로 회전 중)이면 정규화 전까지 모래를 멈춰 둔다.
+  if (flipAnim < 0 && !pendingFlip) {
     sim.addFlowBudget(dt);
     for (let i = 0; i < STEPS; i++) sim.step(visualTiltZ);
     // 완료 판정은 세로 자세에서만 (가로에선 목 위가 잠깐 비어도 done 아님).
