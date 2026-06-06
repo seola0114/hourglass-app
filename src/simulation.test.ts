@@ -135,17 +135,14 @@ describe('flipGrid', () => {
 });
 
 describe('setNeck (목 굵기)', () => {
-  it('목을 좁히면 흐름이 느려지고 넓히면 빨라진다', () => {
+  it('목 굵기를 바꿔도 총 낙하 시간(흐름률)은 총 시간을 따른다', () => {
     const sim = new HourglassSim({ neckHW: 2, duration: 60 });
-    const base = sim.neckFlowPerSecond;
     sim.setNeck(1);
     expect(sim.neckHW).toBe(1);
-    expect(sim.neckSpeedFactor).toBeCloseTo(0.5, 6);
-    expect(sim.neckFlowPerSecond).toBeLessThan(base);
-    sim.setNeck(4);
-    expect(sim.neckHW).toBe(4);
-    expect(sim.neckSpeedFactor).toBeCloseTo(2, 6);
-    expect(sim.neckFlowPerSecond).toBeGreaterThan(base);
+    expect(sim.neckFlowPerSecond).toBeCloseTo(sim.totalSandCount / 60, 6);
+    sim.setNeck(6);
+    expect(sim.neckHW).toBe(6);
+    expect(sim.neckFlowPerSecond).toBeCloseTo(sim.totalSandCount / 60, 6);
   });
 
   it('목을 넓히면 유리 잘록함(neckR)이 커진다', () => {

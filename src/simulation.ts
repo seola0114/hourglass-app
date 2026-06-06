@@ -111,13 +111,10 @@ export class HourglassSim {
     this.recomputeFlow();
   }
 
-  /** neck 굵기로 결정되는 흐름 속도 배율 (기준 neckHW에서 1.0). */
-  get neckSpeedFactor(): number {
-    return this.neckHW / this.baseNeckHW;
-  }
-
+  // 총 낙하 시간은 항상 duration을 따른다 — 목 굵기는 유리 형태·통로 폭(흐름 줄기
+  // 굵기)만 바꾸고 총 시간에는 관여하지 않는다.
   private recomputeFlow(): void {
-    this.neckFlowPerSecond = (this.totalSandCount / this.duration) * this.neckSpeedFactor;
+    this.neckFlowPerSecond = this.totalSandCount / this.duration;
   }
 
   /** 격자 row의 중심 기준 반폭(half-width, 셀 단위). */
