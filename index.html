@@ -220,7 +220,7 @@ let PARTICLES_PER_CELL = 10; // 셀당 입자 N개 → 미세한 가루처럼 �
 let state = 'IDLE', W, H, dpr;
 let gW = 65, gH = 130, cCol, cRow, maxHW, neckHW = 2;
 let sand, clr, bnd, mv, colArr, rowArr;
-let t0 = 0, tDone = 0, fc = 0;
+let t0 = 0, tDone = 0, fc = 0, tPause = 0;
 let totalSandCount = 0, neckFlowBudget = 0, neckFlowPerSecond = 0;
 let prevFlip = false, hasOrient = false;
 let flipAnim = -1, flipDur = 0.55;
@@ -879,7 +879,8 @@ function flipGrid() {
     for (let r = 0; r < gH; r++) {
         const mr = gH - 1 - r;
         for (let c = 0; c < gW; c++) {
-            const si = r * gW + c, di = mr * gW + c;
+            const mc = gW - 1 - c;
+            const si = r * gW + c, di = mr * gW + mc;
             if (sand[si] && bnd[di]) { ts[di] = 1; tc[di] = clr[si]; }
         }
     }
@@ -909,9 +910,10 @@ function doFlip() {
 }
 
 function updateUI() {
-    statusEl.textContent = state === 'IDLE' ? '대기 중' : state === 'RUNNING' ? '진행 중' : '완료';
+    statusEl.textContent = state === 'IDLE' ? '대기 중' : state === 'RUNNING' ? '진행 중' : state === 'PAUSE' ? '일시정지' : '완료';
     statusEl.className = state === 'COMPLETED' ? 'done' : '';
-    hintEl.textContent = hasOrient ? '폰을 뒤집거나 화면을 탭하세요' : '화면을 탭하여 뒤집기';
+    hintEl.textContent = state === 'PAUSE' ? '세로로 다시 세우면 이어서 진행'
+        : hasOrient ? '폰을 뒤집거나 화면을 탭하세요' : '화면을 탭하여 뒤집기';
 }
 
 // ── Settings Panel ──
@@ -1063,17 +1065,18 @@ function animate(time) {
     prevTime = time;
     fc++;
 
-    // Flip animation
+    // Flip animation — 화면 평면 안에서 좌우로 도는 롤(Z축) 180°
+    let flipRotZ = 0;
     if (flipAnim >= 0) {
         flipAnim += dt / flipDur;
         if (flipAnim >= 1) {
             flipAnim = -1;
             flipGrid();
-            hgGroup.rotation.x = 0;
+            flipRotZ = 0;
         } else {
             const t = flipAnim;
             const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-            hgGroup.rotation.x = ease * Math.PI;
+            flipRotZ = ease * Math.PI;
         }
     }
 
@@ -1082,8 +1085,18 @@ function animate(time) {
     const tiltLerp = 1 - Math.exp(-dt * 5); // frame-rate independent smoothing
     visualTiltZ += (manualTarget - visualTiltZ) * tiltLerp;
 
-    // Sand simulation — 항상 돌림 (어떤 자세에서든 흐르도록).
-    if (flipAnim < 0) {
+    // 90°(가로) 자세 → 일시정지. 세로(0°/180°)일 때만 모래가 흐름.
+    const m4 = ((accumTilt % 4) + 4) % 4;
+    const horizontal = (m4 === 1 || m4 === 3);
+    if (state === 'RUNNING' && horizontal) {
+        state = 'PAUSE'; tPause = Date.now(); updateUI();
+    } else if (state === 'PAUSE' && !horizontal) {
+        t0 += Date.now() - tPause; // 멈춘 시간만큼 시작 시각을 밀어 경과시간 보존
+        state = 'RUNNING'; updateUI();
+    }
+
+    // Sand simulation — 세로 자세에서만. 가로(일시정지)면 동결.
+    if (flipAnim < 0 && !horizontal) {
         // dt 기반 누적 → 모든 frame rate(60/120Hz 등)에서 동일한 DURATION 보장
         neckFlowBudget = Math.min(neckFlowBudget + neckFlowPerSecond * dt, 3);
         for (let i = 0; i < STEPS; i++) simStep();
@@ -1102,11 +1115,6 @@ function animate(time) {
         const pulse = Math.sin(elapsed * 0.006) * 0.4 + 0.5;
         sparkMat2.opacity = pulse;
         warmLight.intensity = 1.4 + pulse * 0.8;
-        if (elapsed > DONE_DELAY) {
-            state = 'IDLE'; fillBottom(); sparkMat2.opacity = 0;
-            warmLight.intensity = 1.4;
-            updateUI();
-        }
     } else {
         sparkMat2.opacity = 0;
     }
@@ -1114,10 +1122,14 @@ function animate(time) {
     // Update sand mesh
     updateSandMesh();
 
-    // Timer UI
-    if (state === 'RUNNING' || state === 'COMPLETED') {
-        const e = ((state === 'COMPLETED' ? tDone : Date.now()) - t0) / 1000;
+    // Timer + 진행률 UI
+    if (state === 'RUNNING' || state === 'PAUSE' || state === 'COMPLETED') {
+        const nowRef = state === 'COMPLETED' ? tDone : (state === 'PAUSE' ? tPause : Date.now());
+        const e = (nowRef - t0) / 1000;
         timerEl.textContent = `${(e / 60) | 0}:${String((e % 60) | 0).padStart(2, '0')}`;
+        const pct = state === 'COMPLETED' ? 100 : Math.min(100, Math.round((e / DURATION) * 100));
+        const label = state === 'COMPLETED' ? '완료' : state === 'PAUSE' ? '일시정지' : '진행 중';
+        statusEl.textContent = label + ` · ${pct}%`;
     } else {
         timerEl.textContent = '';
     }
@@ -1135,7 +1147,7 @@ function animate(time) {
     dustPoints.rotation.y = 0;
     dustMat.opacity = 0.14;
     bloomPass.strength = 0.32;
-    hgGroup.rotation.z = visualTiltZ;
+    hgGroup.rotation.z = visualTiltZ + flipRotZ;
     camera.position.x = 0.15;
     camera.position.y = 0.15;
     camera.lookAt(0, 0, 0);
