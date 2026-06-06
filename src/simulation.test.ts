@@ -100,6 +100,15 @@ describe('fillBottom 채움 비율', () => {
     expect(counts[counts.length - 1]).toBeGreaterThan(0);
   });
 
+  it('setSandToTime은 목 굵기를 유지한 채 총 시간을 목표값에 맞춘다', () => {
+    const sim = new HourglassSim({ sandFill: 1.0, duration: 60, rng: seeded(9) });
+    const neck0 = sim.neckHW;
+    sim.setSandToTime(30); // 절반 시간 → 모래가 줄어든다
+    expect(sim.neckHW).toBe(neck0); // 목은 그대로
+    expect(sim.duration).toBeLessThan(60);
+    expect(Math.abs(sim.duration - 30)).toBeLessThan(8); // 슬라이더 스텝 내 근사
+  });
+
   it('setSandFill은 모래수와 총 시간을 갱신 (흐름률은 목 굵기 고정)', () => {
     const sim = new HourglassSim({ sandFill: 1.0, duration: 60 });
     const full = sim.totalSandCount;

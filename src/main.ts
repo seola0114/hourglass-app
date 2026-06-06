@@ -650,18 +650,62 @@ function syncPanel() {
   document.getElementById('v-sand')!.textContent = sandPct + '%';
 }
 
-// 총 시간(역방향): 모래 양 유지 → 목 굵기를 역산. 유리 형태가 함께 바뀐다.
+// ── 잠금(Lock): 세 결합 변수 중 하나를 고정하면 나머지가 흡수 대상을 바꾼다. ──
+type Coupled = 'time' | 'neck' | 'sand';
+let lockedVar: Coupled | null = null;
+
+// 잠금 상태를 버튼 아이콘·잠긴 슬라이더 비활성화에 반영.
+function applyLockUI() {
+  const rows: { v: Coupled; lk: string; label: string; slider: string }[] = [
+    { v: 'time', lk: 'lk-time', label: 'l-duration', slider: 's-duration' },
+    { v: 'neck', lk: 'lk-neck', label: 'l-neck', slider: 's-neck' },
+    { v: 'sand', lk: 'lk-sand', label: 'l-sand', slider: 's-sand' },
+  ];
+  for (const { v, lk, label, slider } of rows) {
+    const locked = lockedVar === v;
+    const btn = document.getElementById(lk)!;
+    btn.textContent = locked ? '🔒' : '🔓';
+    btn.classList.toggle('locked', locked);
+    document.getElementById(label)!.classList.toggle('locked', locked);
+    inputEl(slider).disabled = locked;
+  }
+}
+
+function toggleLock(v: Coupled) {
+  lockedVar = lockedVar === v ? null : v;
+  applyLockUI();
+}
+document.getElementById('lk-time')!.addEventListener('click', () => toggleLock('time'));
+document.getElementById('lk-neck')!.addEventListener('click', () => toggleLock('neck'));
+document.getElementById('lk-sand')!.addEventListener('click', () => toggleLock('sand'));
+
+// 목 굵기가 바뀌었으면 유리 비주얼을 다시 만든 뒤 진행 상태 초기화.
+function afterCoupledChange(neckBefore: number) {
+  if (sim.neckHW !== neckBefore) applyNeckVisuals();
+  resetRun();
+  syncPanel();
+}
+
+// 총 시간 드래그: neck 잠금 시 모래 양이, 그 외엔 목 굵기가 흡수.
 inputEl('s-duration').addEventListener('input', (e) => {
-  sim.setDuration(+(e.target as HTMLInputElement).value);
-  applyNeckVisuals();
-  resetRun();
-  syncPanel();
+  const v = +(e.target as HTMLInputElement).value;
+  const neckBefore = sim.neckHW;
+  if (lockedVar === 'neck') sim.setSandToTime(v);
+  else sim.setDuration(v);
+  afterCoupledChange(neckBefore);
 });
-// 모래 양(정방향): 총 시간 표시가 결과값으로 자동 갱신.
+// 모래 양 드래그: time 잠금 시 목 굵기가, 그 외엔 총 시간이 흡수.
 inputEl('s-sand').addEventListener('input', (e) => {
-  sim.setSandFill(+(e.target as HTMLInputElement).value / 100);
-  resetRun();
-  syncPanel();
+  const v = +(e.target as HTMLInputElement).value / 100;
+  const neckBefore = sim.neckHW;
+  if (lockedVar === 'time') {
+    const T = sim.duration;
+    sim.setSandFill(v);
+    sim.setDuration(T);
+  } else {
+    sim.setSandFill(v);
+  }
+  afterCoupledChange(neckBefore);
 });
 inputEl('s-psize').addEventListener('input', (e) => {
   P_SIZE = +(e.target as HTMLInputElement).value / 10000;
@@ -682,12 +726,18 @@ inputEl('s-slide').addEventListener('input', (e) => {
   sim.slideMax = +(e.target as HTMLInputElement).value;
   document.getElementById('v-slide')!.textContent = String(sim.slideMax);
 });
-// 목 굵기(정방향): 총 시간 표시가 결과값으로 자동 갱신.
+// 목 굵기 드래그: time 잠금 시 모래 양이, 그 외엔 총 시간이 흡수.
 inputEl('s-neck').addEventListener('input', (e) => {
-  sim.setNeck(+(e.target as HTMLInputElement).value);
-  applyNeckVisuals();
-  resetRun();
-  syncPanel();
+  const v = +(e.target as HTMLInputElement).value;
+  const neckBefore = sim.neckHW;
+  if (lockedVar === 'time') {
+    const T = sim.duration;
+    sim.setNeck(v);
+    sim.setSandToTime(T);
+  } else {
+    sim.setNeck(v);
+  }
+  afterCoupledChange(neckBefore);
 });
 
 // ── Events ──

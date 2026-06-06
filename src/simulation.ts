@@ -154,12 +154,17 @@ export class HourglassSim {
     return s;
   }
 
+  /** 채움 비율 ratio일 때 모래가 시작되는 row. */
+  private fillStartRow(ratio: number): number {
+    const startBase = this.cRow + 2;
+    const rows = this.gH - startBase;
+    return startBase + Math.floor((1 - ratio) * rows);
+  }
+
   /** 바닥 bulb를 sandFill 비율만큼 모래로 채운다. */
   fillBottom(): void {
     this.sand.fill(0);
-    const startBase = this.cRow + 2;
-    const rows = this.gH - startBase;
-    const startRow = startBase + Math.floor((1 - this.sandFill) * rows);
+    const startRow = this.fillStartRow(this.sandFill);
     for (let r = startRow; r < this.gH; r++) {
       for (let c = 0; c < this.gW; c++) {
         const i = r * this.gW + c;
@@ -169,6 +174,15 @@ export class HourglassSim {
         }
       }
     }
+  }
+
+  /** 채움 비율 ratio일 때의 모래 셀 수(실제 채우지 않고 계산). */
+  sandCountForFill(ratio: number): number {
+    const startRow = this.fillStartRow(ratio);
+    let s = 0;
+    for (let r = startRow; r < this.gH; r++)
+      for (let c = 0; c < this.gW; c++) if (this.bnd[r * this.gW + c]) s++;
+    return s;
   }
 
   /** 총 시간(역방향): 모래 양을 유지한 채 목표 시간이 나오는 목 굵기를 역산해 적용. */
@@ -182,6 +196,22 @@ export class HourglassSim {
     this.fillBottom();
     this.totalSandCount = this.countSand();
     this.recomputeFlow();
+  }
+
+  /** 총 시간(역방향): 목 굵기를 유지한 채 목표 시간이 나오는 모래 양을 슬라이더 스텝에서 탐색해 적용. */
+  setSandToTime(seconds: number): void {
+    const targetCount = seconds * this.flowK * this.neckHW;
+    let bestFill = 0.1;
+    let bestErr = Infinity;
+    for (let pct = 10; pct <= 100; pct += 5) {
+      const fill = pct / 100;
+      const err = Math.abs(this.sandCountForFill(fill) - targetCount);
+      if (err < bestErr) {
+        bestErr = err;
+        bestFill = fill;
+      }
+    }
+    this.setSandFill(bestFill);
   }
 
   /** neck 굵기(통로 반폭, 셀)를 조절. 유리 잘록함·통로·흐름 속도를 함께 갱신. */

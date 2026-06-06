@@ -121,6 +121,20 @@
             font-weight: 400; font-size: 11px;
             color: rgba(255,225,170,0.95); letter-spacing: 0;
         }
+        #panel-body .name { display: flex; align-items: center; gap: 6px; }
+        #panel-body .lock {
+            border: none; background: none; padding: 0;
+            width: 16px; height: 16px; line-height: 1;
+            font-size: 11px; cursor: pointer;
+            color: rgba(245,235,215,0.4);
+            transition: color 0.2s ease;
+        }
+        #panel-body .lock:hover { color: rgba(255,225,170,0.8); }
+        #panel-body .lock.locked { color: rgba(255,210,150,0.95); }
+        #panel-body label.locked .val { color: rgba(245,235,215,0.4); }
+        #panel-body label.locked input[type=range] {
+            opacity: 0.4; cursor: not-allowed;
+        }
         #panel-body input[type=range] {
             width: 100%; accent-color: rgba(255,210,150,0.95);
             cursor: pointer;
@@ -167,12 +181,12 @@
         <div class="rotate-buttons">
             <button id="b-reset" type="button">⟲ 초기화</button>
         </div>
-        <label>
-            <div class="row"><span>총 시간</span><span class="val" id="v-duration">60s</span></div>
+        <label id="l-duration">
+            <div class="row"><span class="name"><button type="button" class="lock" id="lk-time" aria-label="총 시간 잠금">🔓</button>총 시간</span><span class="val" id="v-duration">60s</span></div>
             <input type="range" min="2" max="120" step="1" value="60" id="s-duration">
         </label>
-        <label>
-            <div class="row"><span>모래 양</span><span class="val" id="v-sand">100%</span></div>
+        <label id="l-sand">
+            <div class="row"><span class="name"><button type="button" class="lock" id="lk-sand" aria-label="모래 양 잠금">🔓</button>모래 양</span><span class="val" id="v-sand">100%</span></div>
             <input type="range" min="10" max="100" step="5" value="100" id="s-sand">
         </label>
         <label>
@@ -187,8 +201,8 @@
             <div class="row"><span>안식각 (slide)</span><span class="val" id="v-slide">3</span></div>
             <input type="range" min="1" max="6" step="1" value="3" id="s-slide">
         </label>
-        <label>
-            <div class="row"><span>목 굵기</span><span class="val" id="v-neck">2</span></div>
+        <label id="l-neck">
+            <div class="row"><span class="name"><button type="button" class="lock" id="lk-neck" aria-label="목 굵기 잠금">🔓</button>목 굵기</span><span class="val" id="v-neck">2</span></div>
             <input type="range" min="1" max="6" step="1" value="2" id="s-neck">
         </label>
     </div>
