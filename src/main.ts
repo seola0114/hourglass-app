@@ -621,20 +621,47 @@ function inputEl(id: string): HTMLInputElement {
   return document.getElementById(id) as HTMLInputElement;
 }
 
-inputEl('s-duration').addEventListener('input', (e) => {
-  const v = +(e.target as HTMLInputElement).value;
-  sim.setDuration(v);
-  document.getElementById('v-duration')!.textContent = v + 's';
-});
-inputEl('s-sand').addEventListener('input', (e) => {
-  const v = +(e.target as HTMLInputElement).value;
-  sim.setSandFill(v / 100);
-  document.getElementById('v-sand')!.textContent = v + '%';
+// 목 굵기가 바뀌면 유리·입자·샌드 메시를 다시 만든다.
+function applyNeckVisuals() {
+  rebuildGlass();
+  buildParticlePositions();
+  rebuildSandMesh();
+}
+
+// 패널 조절 후 진행 상태를 초기(IDLE)로 되돌린다.
+function resetRun() {
   state = 'IDLE';
   sim.resetFlowBudget();
   sparkMat2.opacity = 0;
   warmLight.intensity = 1.4;
   updateUI();
+}
+
+// sim의 현재 물리 상태를 세 슬라이더(총 시간·목 굵기·모래 양) 표시에 반영.
+// 값만 직접 쓰고 input 이벤트는 발생시키지 않아 연동 루프를 막는다.
+function syncPanel() {
+  const dur = Math.round(sim.duration);
+  inputEl('s-duration').value = String(dur);
+  document.getElementById('v-duration')!.textContent = dur + 's';
+  inputEl('s-neck').value = String(sim.neckHW);
+  document.getElementById('v-neck')!.textContent = String(sim.neckHW);
+  const sandPct = Math.round(sim.sandFill * 100);
+  inputEl('s-sand').value = String(sandPct);
+  document.getElementById('v-sand')!.textContent = sandPct + '%';
+}
+
+// 총 시간(역방향): 모래 양 유지 → 목 굵기를 역산. 유리 형태가 함께 바뀐다.
+inputEl('s-duration').addEventListener('input', (e) => {
+  sim.setDuration(+(e.target as HTMLInputElement).value);
+  applyNeckVisuals();
+  resetRun();
+  syncPanel();
+});
+// 모래 양(정방향): 총 시간 표시가 결과값으로 자동 갱신.
+inputEl('s-sand').addEventListener('input', (e) => {
+  sim.setSandFill(+(e.target as HTMLInputElement).value / 100);
+  resetRun();
+  syncPanel();
 });
 inputEl('s-psize').addEventListener('input', (e) => {
   P_SIZE = +(e.target as HTMLInputElement).value / 10000;
@@ -655,18 +682,12 @@ inputEl('s-slide').addEventListener('input', (e) => {
   sim.slideMax = +(e.target as HTMLInputElement).value;
   document.getElementById('v-slide')!.textContent = String(sim.slideMax);
 });
+// 목 굵기(정방향): 총 시간 표시가 결과값으로 자동 갱신.
 inputEl('s-neck').addEventListener('input', (e) => {
-  const v = +(e.target as HTMLInputElement).value;
-  sim.setNeck(v);
-  document.getElementById('v-neck')!.textContent = String(sim.neckHW);
-  rebuildGlass();
-  buildParticlePositions();
-  rebuildSandMesh();
-  state = 'IDLE';
-  sim.resetFlowBudget();
-  sparkMat2.opacity = 0;
-  warmLight.intensity = 1.4;
-  updateUI();
+  sim.setNeck(+(e.target as HTMLInputElement).value);
+  applyNeckVisuals();
+  resetRun();
+  syncPanel();
 });
 
 // ── Events ──

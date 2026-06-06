@@ -100,12 +100,16 @@ describe('fillBottom 채움 비율', () => {
     expect(counts[counts.length - 1]).toBeGreaterThan(0);
   });
 
-  it('setSandFill이 모래수와 유량을 갱신', () => {
+  it('setSandFill은 모래수와 총 시간을 갱신 (흐름률은 목 굵기 고정)', () => {
     const sim = new HourglassSim({ sandFill: 1.0, duration: 60 });
     const full = sim.totalSandCount;
+    const rate = sim.neckFlowPerSecond;
     sim.setSandFill(0.5);
     expect(sim.totalSandCount).toBeLessThan(full);
-    expect(sim.neckFlowPerSecond).toBeCloseTo(sim.totalSandCount / 60, 6);
+    // 목이 그대로면 흐름률은 동일하고, 모래가 줄면 총 시간이 짧아진다.
+    expect(sim.neckFlowPerSecond).toBeCloseTo(rate, 6);
+    expect(sim.duration).toBeCloseTo(sim.totalSandCount / rate, 6);
+    expect(sim.duration).toBeLessThan(60);
   });
 });
 
@@ -135,14 +139,25 @@ describe('flipGrid', () => {
 });
 
 describe('setNeck (목 굵기)', () => {
-  it('목 굵기를 바꿔도 총 낙하 시간(흐름률)은 총 시간을 따른다', () => {
+  it('목을 좁히면 총 시간이 길어지고 넓히면 짧아진다', () => {
     const sim = new HourglassSim({ neckHW: 2, duration: 60 });
+    expect(sim.duration).toBeCloseTo(60, 0);
     sim.setNeck(1);
     expect(sim.neckHW).toBe(1);
-    expect(sim.neckFlowPerSecond).toBeCloseTo(sim.totalSandCount / 60, 6);
+    expect(sim.duration).toBeGreaterThan(60);
     sim.setNeck(6);
     expect(sim.neckHW).toBe(6);
-    expect(sim.neckFlowPerSecond).toBeCloseTo(sim.totalSandCount / 60, 6);
+    expect(sim.duration).toBeLessThan(60);
+  });
+
+  it('setDuration은 모래 양을 유지한 채 목 굵기를 역산한다', () => {
+    const sim = new HourglassSim({ neckHW: 2, duration: 60 });
+    sim.setDuration(20); // 짧게 → 목이 굵어짐
+    expect(sim.neckHW).toBeGreaterThan(2);
+    expect(sim.duration).toBeLessThan(60);
+    sim.setDuration(120); // 길게 → 목이 좁아짐
+    expect(sim.neckHW).toBeLessThan(2);
+    expect(sim.duration).toBeGreaterThan(60);
   });
 
   it('목을 넓히면 유리 잘록함(neckR)이 커진다', () => {

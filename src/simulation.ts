@@ -21,7 +21,7 @@ export interface SimOptions {
   gW?: number;
   gH?: number;
   neckHW?: number;
-  /** 총 낙하 시간(초). */
+  /** 기준 총 시간(초) — 기본 목 굵기·가득 찬 모래에서의 낙하 시간. 실제 duration은 목·모래에 따라 파생. */
   duration?: number;
   /** 바닥 bulb 채움 비율 0~1 (1=가득). */
   sandFill?: number;
@@ -75,6 +75,8 @@ export class HourglassSim {
   maxSandCount: number;
   neckFlowBudget = 0;
   neckFlowPerSecond = 0;
+  /** 흐름 속도 보정 상수 — neckFlowPerSecond = flowK * neckHW. */
+  readonly flowK: number;
 
   private readonly colArr: number[];
   private readonly rowArr: number[];
@@ -108,13 +110,16 @@ export class HourglassSim {
     this.fillBottom();
     this.totalSandCount = this.countSand();
     this.maxSandCount = this.totalSandCount;
+    // flowK 보정: 기본 목 굵기·가득 찬 모래에서 this.duration(기준 시간)이 나오도록.
+    this.flowK = this.totalSandCount / (this.baseNeckHW * this.duration);
     this.recomputeFlow();
   }
 
-  // 총 낙하 시간은 항상 duration을 따른다 — 목 굵기는 유리 형태·통로 폭(흐름 줄기
-  // 굵기)만 바꾸고 총 시간에는 관여하지 않는다.
+  // 물리 제약 양방향 모델: 흐름 속도는 목 굵기가 결정하는 물리량(flowK * neckHW),
+  // 총 시간(duration)은 모래 양 ÷ 흐름 속도로 파생된다.
   private recomputeFlow(): void {
-    this.neckFlowPerSecond = this.totalSandCount / this.duration;
+    this.neckFlowPerSecond = this.flowK * this.neckHW;
+    this.duration = this.totalSandCount / this.neckFlowPerSecond;
   }
 
   /** 격자 row의 중심 기준 반폭(half-width, 셀 단위). */
@@ -166,9 +171,10 @@ export class HourglassSim {
     }
   }
 
+  /** 총 시간(역방향): 모래 양을 유지한 채 목표 시간이 나오는 목 굵기를 역산해 적용. */
   setDuration(seconds: number): void {
-    this.duration = seconds;
-    this.recomputeFlow();
+    const targetNeck = this.totalSandCount / (this.flowK * seconds);
+    this.setNeck(Math.max(1, Math.min(6, Math.round(targetNeck))));
   }
 
   setSandFill(ratio: number): void {
