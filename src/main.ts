@@ -518,6 +518,39 @@ function initSparks() {
 
 // ── State Machine ──
 // 탭/뒤집기는 항상 grid를 뒤집고 RUNNING으로 (재)시작.
+// ── 완료 알림음 (WebAudio로 생성, 에셋 불필요) ──
+// 자동재생 정책상 첫 사용자 제스처에서 컨텍스트를 깨워둔다(아래 unlock 리스너).
+let audioCtx: AudioContext | null = null;
+function ensureAudio() {
+  if (!audioCtx) {
+    const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (Ctor) audioCtx = new Ctor();
+  }
+  if (audioCtx?.state === 'suspended') void audioCtx.resume();
+}
+// A 메이저 트라이어드 아르페지오(A5·C#6·E6)를 종소리 같은 감쇠로 울린다.
+function playChime() {
+  ensureAudio();
+  const ctx = audioCtx;
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  [880, 1108.73, 1318.51].forEach((freq, i) => {
+    const t = now + i * 0.14;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.22, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 1.2);
+  });
+}
+// 첫 상호작용에서 오디오 unlock (캡처 단계 → 다른 핸들러의 stopPropagation보다 먼저).
+window.addEventListener('pointerdown', ensureAudio, { capture: true, once: true });
+
 function doFlip() {
   if (flipAnim >= 0) return;
   if (state === 'COMPLETED') {
@@ -1001,6 +1034,7 @@ function animate(time: number) {
       tDone = Date.now();
       initSparks();
       sparkMat2.opacity = 0.9;
+      playChime();
       try {
         navigator.vibrate?.(200);
       } catch {
