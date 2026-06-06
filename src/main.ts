@@ -562,7 +562,6 @@ function doFlip() {
   flipAnim = 0;
   state = 'RUNNING';
   t0 = Date.now();
-  runEditConfirmed = false; // 새 진행 시작 → 경고 재무장
   sim.resetFlowBudget();
   updateUI();
 }
@@ -631,11 +630,8 @@ rotRightBtn.addEventListener('click', (e) => {
   rotateBy(-1);
 });
 
-// 각도 초기화: 회전·애니메이션·모래·타이머만 초기 상태로. 패널 설정은 유지.
-const resetAngleBtn = document.getElementById('b-reset-angle')!;
-resetAngleBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
-resetAngleBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
+// 처음 상태(똑바로 선 채 모래는 바닥에서 대기)로 되돌린다. 회전·모래·타이머만 초기화하고 패널 설정은 유지.
+function resetToStart() {
   accumTilt = 0;
   visualTiltZ = 0;
   pendingFlip = false;
@@ -648,6 +644,14 @@ resetAngleBtn.addEventListener('click', (e) => {
   warmLight.intensity = 1.4;
   updateRotButtons();
   updateUI();
+}
+
+// 각도 초기화: 회전·애니메이션·모래·타이머만 초기 상태로. 패널 설정은 유지.
+const resetAngleBtn = document.getElementById('b-reset-angle')!;
+resetAngleBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+resetAngleBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  resetToStart();
 });
 
 // 설정 초기화: 모든 슬라이더를 기본값으로 + 잠금 해제 + 비주얼/시뮬 재구성.
@@ -791,9 +795,8 @@ document.getElementById('lk-sand')!.addEventListener('click', () => toggleLock('
 
 // ── 진행 중 설정 변경 경고 모달 ──
 // 진행/일시정지 중 타이머를 초기화하는 조작(결합 슬라이더·프리셋·초기화 버튼)을
-// 건드리면 먼저 경고. "변경할게요"를 누르면 이번 진행 동안은 다시 묻지 않는다.
+// 건드리면 먼저 경고. "변경할게요"를 누르면 곧바로 처음 상태로 초기화한다.
 const modalOverlay = document.getElementById('modal-overlay')!;
-let runEditConfirmed = false;
 const DESTRUCTIVE_SEL = '#s-duration, #s-sand, #s-neck, .preset, #b-reset-angle, #b-reset-panel';
 
 function openResetModal() {
@@ -805,7 +808,6 @@ function closeResetModal() {
 // 진행 중 파괴적 조작을 가로채 모달을 띄운다. (캡처 단계 → 슬라이더 드래그·버튼 클릭 발생 전 차단)
 function guardDestructive(e: Event) {
   if (state !== 'RUNNING' && state !== 'PAUSE') return;
-  if (runEditConfirmed) return;
   const el = e.target as HTMLElement | null;
   if (!el || !el.closest(DESTRUCTIVE_SEL)) return;
   e.preventDefault();
@@ -821,8 +823,8 @@ document.getElementById('modal-cancel')!.addEventListener('click', (e) => {
 });
 document.getElementById('modal-confirm')!.addEventListener('click', (e) => {
   e.stopPropagation();
-  runEditConfirmed = true; // 이번 진행 동안 재확인 생략 → 사용자가 다시 조작하면 적용
   closeResetModal();
+  resetToStart(); // 곧바로 처음 상태로 초기화 (이후 IDLE이라 설정을 자유롭게 조정 가능)
 });
 // 배경 클릭·Esc는 취소로 간주.
 modalOverlay.addEventListener('click', (e) => {
@@ -1004,7 +1006,6 @@ function animate(time: number) {
     pendingFlip = false;
     state = 'RUNNING';
     t0 = Date.now();
-    runEditConfirmed = false; // 새 진행 시작 → 경고 재무장
     sim.resetFlowBudget();
     updateRotButtons();
     updateUI();
