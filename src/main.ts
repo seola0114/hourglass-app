@@ -787,6 +787,14 @@ inputEl('s-slide').addEventListener('input', (e) => {
   sim.slideMax = +(e.target as HTMLInputElement).value;
   document.getElementById('v-slide')!.textContent = String(sim.slideMax);
 });
+// 안식각 도움말 툴팁 토글.
+const slideHelp = document.getElementById('hlp-slide')!;
+const slideTip = document.getElementById('tip-slide')!;
+slideHelp.addEventListener('click', () => {
+  const willShow = slideTip.hasAttribute('hidden');
+  slideTip.toggleAttribute('hidden', !willShow);
+  slideHelp.classList.toggle('active', willShow);
+});
 // 목 굵기 드래그: time 잠금 시 모래 양이, 그 외엔 총 시간이 흡수.
 inputEl('s-neck').addEventListener('input', (e) => {
   const v = +(e.target as HTMLInputElement).value;

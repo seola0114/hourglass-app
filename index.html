@@ -149,6 +149,27 @@
         #panel-body .preset:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,225,170,0.4); }
         #panel-body .preset.active { background: rgba(255,210,150,0.2); border-color: rgba(255,225,170,0.55); color: #fff; }
         #panel-body label.locked .preset { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+        #panel-body .help {
+            border: none; padding: 0;
+            width: 15px; height: 15px; border-radius: 50%;
+            background: rgba(255,255,255,0.14);
+            color: rgba(245,235,215,0.85);
+            font-size: 10px; font-weight: 700; line-height: 1; cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+        #panel-body .help:hover { background: rgba(255,225,170,0.35); color: #fff; }
+        #panel-body .help.active { background: rgba(255,210,150,0.85); color: #16273f; }
+        #panel-body .tooltip {
+            margin-top: 8px; padding: 9px 11px;
+            border-radius: 9px;
+            background: rgba(10,22,42,0.5);
+            border: 1px solid rgba(180,245,255,0.2);
+            font-size: 10px; font-weight: 400; line-height: 1.55;
+            letter-spacing: 0.2px;
+            color: rgba(235,240,250,0.9);
+        }
+        #panel-body .tooltip[hidden] { display: none; }
         #panel-body input[type=range] {
             width: 100%; accent-color: rgba(255,210,150,0.95);
             cursor: pointer;
@@ -219,8 +240,9 @@
             <input type="range" min="1" max="20" step="1" value="10" id="s-ppc">
         </label>
         <label>
-            <div class="row"><span>안식각 (slide)</span><span class="val" id="v-slide">3</span></div>
+            <div class="row"><span class="name">안식각 (slide)<button type="button" class="help" id="hlp-slide" aria-label="안식각 설명">?</button></span><span class="val" id="v-slide">3</span></div>
             <input type="range" min="1" max="6" step="1" value="3" id="s-slide">
+            <div class="tooltip" id="tip-slide" hidden>모래 더미가 무너지지 않고 버티는 사면의 최대 경사각이에요. 값이 클수록 모래가 옆으로 더 멀리 미끄러져 완만하게 퍼지고, 작을수록 가파르게 쌓여요.</div>
         </label>
         <label id="l-neck">
             <div class="row"><span class="name"><button type="button" class="lock" id="lk-neck" aria-label="목 굵기 잠금">🔓</button>목 굵기</span><span class="val" id="v-neck">2</span></div>
