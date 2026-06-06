@@ -533,6 +533,12 @@ function doFlip() {
   updateUI();
 }
 
+// 초 → "m:ss" (카운트다운용: 올림 처리해 0:01→0:00 자연스럽게)
+function fmtClock(sec: number): string {
+  const s = Math.max(0, Math.ceil(sec));
+  return `${(s / 60) | 0}:${String(s % 60).padStart(2, '0')}`;
+}
+
 function updateUI() {
   statusEl.textContent =
     state === 'IDLE'
@@ -975,12 +981,14 @@ function animate(time: number) {
   if (state === 'RUNNING' || state === 'PAUSE' || state === 'COMPLETED') {
     const nowRef = state === 'COMPLETED' ? tDone : state === 'PAUSE' ? tPause : Date.now();
     const e = (nowRef - t0) / 1000;
-    timerEl.textContent = `${(e / 60) | 0}:${String((e % 60) | 0).padStart(2, '0')}`;
+    const remain = state === 'COMPLETED' ? 0 : sim.duration - e;
+    timerEl.textContent = fmtClock(remain);
     const pct = state === 'COMPLETED' ? 100 : Math.min(100, Math.round((e / sim.duration) * 100));
     const label = state === 'COMPLETED' ? '완료' : state === 'PAUSE' ? '일시정지' : '진행 중';
     statusEl.textContent = label + ` · ${pct}%`;
   } else {
-    timerEl.textContent = '';
+    // 대기 중: 설정한 총 시간을 미리 보여줘 카운트다운 대상이 분명하게.
+    timerEl.textContent = fmtClock(sim.duration);
   }
 
   // Twinkle background stars + pulse moon glow
