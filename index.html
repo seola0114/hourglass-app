@@ -160,14 +160,27 @@
         }
         #panel-body .help:hover { background: rgba(255,225,170,0.35); color: #fff; }
         #panel-body .help.active { background: rgba(255,210,150,0.85); color: #16273f; }
+        #panel-body .help-wrap { position: relative; display: inline-flex; }
         #panel-body .tooltip {
-            margin-top: 8px; padding: 9px 11px;
-            border-radius: 9px;
-            background: rgba(10,22,42,0.5);
-            border: 1px solid rgba(180,245,255,0.2);
-            font-size: 10px; font-weight: 400; line-height: 1.55;
-            letter-spacing: 0.2px;
-            color: rgba(235,240,250,0.9);
+            position: absolute;
+            bottom: calc(100% + 9px);
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            padding: 11px 13px;
+            border-radius: 12px;
+            background: #fbfbfc;
+            color: #1c2533;
+            font-size: 11px; font-weight: 400; line-height: 1.55;
+            letter-spacing: 0.1px;
+            box-shadow: 0 6px 22px rgba(8,16,32,0.45);
+            z-index: 5;
+        }
+        #panel-body .tooltip::after {
+            content: ''; position: absolute;
+            top: 100%; left: 50%; transform: translateX(-50%);
+            border: 7px solid transparent;
+            border-top-color: #fbfbfc;
         }
         #panel-body .tooltip[hidden] { display: none; }
         #panel-body input[type=range] {
@@ -240,9 +253,8 @@
             <input type="range" min="1" max="20" step="1" value="10" id="s-ppc">
         </label>
         <label>
-            <div class="row"><span class="name">안식각 (slide)<button type="button" class="help" id="hlp-slide" aria-label="안식각 설명">?</button></span><span class="val" id="v-slide">3</span></div>
+            <div class="row"><span class="name">안식각 (slide)<span class="help-wrap"><button type="button" class="help" id="hlp-slide" aria-label="안식각 설명">?</button><span class="tooltip" id="tip-slide" role="tooltip" hidden>모래 더미가 무너지지 않고 버티는 사면의 최대 경사각이에요. 값이 클수록 모래가 옆으로 더 멀리 미끄러져 완만하게 퍼지고, 작을수록 가파르게 쌓여요.</span></span></span><span class="val" id="v-slide">3</span></div>
             <input type="range" min="1" max="6" step="1" value="3" id="s-slide">
-            <div class="tooltip" id="tip-slide" hidden>모래 더미가 무너지지 않고 버티는 사면의 최대 경사각이에요. 값이 클수록 모래가 옆으로 더 멀리 미끄러져 완만하게 퍼지고, 작을수록 가파르게 쌓여요.</div>
         </label>
         <label id="l-neck">
             <div class="row"><span class="name"><button type="button" class="lock" id="lk-neck" aria-label="목 굵기 잠금">🔓</button>목 굵기</span><span class="val" id="v-neck">2</span></div>
