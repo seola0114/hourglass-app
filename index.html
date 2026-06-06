@@ -135,6 +135,20 @@
         #panel-body label.locked input[type=range] {
             opacity: 0.4; cursor: not-allowed;
         }
+        #panel-body .presets { display: flex; gap: 6px; margin-top: 8px; }
+        #panel-body .preset {
+            flex: 1; padding: 5px 0;
+            border: 1px solid rgba(255,225,170,0.22);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+            color: rgba(245,235,215,0.85);
+            font-family: inherit; font-size: 10px; font-weight: 600; letter-spacing: 0.3px;
+            cursor: pointer;
+            transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+        }
+        #panel-body .preset:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,225,170,0.4); }
+        #panel-body .preset.active { background: rgba(255,210,150,0.2); border-color: rgba(255,225,170,0.55); color: #fff; }
+        #panel-body label.locked .preset { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
         #panel-body input[type=range] {
             width: 100%; accent-color: rgba(255,210,150,0.95);
             cursor: pointer;
@@ -185,6 +199,11 @@
         <label id="l-duration">
             <div class="row"><span class="name"><button type="button" class="lock" id="lk-time" aria-label="총 시간 잠금">🔓</button>총 시간</span><span class="val" id="v-duration">60s</span></div>
             <input type="range" min="2" max="120" step="1" value="60" id="s-duration">
+            <div class="presets">
+                <button type="button" class="preset" data-sec="30">30초</button>
+                <button type="button" class="preset" data-sec="60">1분</button>
+                <button type="button" class="preset" data-sec="120">2분</button>
+            </div>
         </label>
         <label id="l-sand">
             <div class="row"><span class="name"><button type="button" class="lock" id="lk-sand" aria-label="모래 양 잠금">🔓</button>모래 양</span><span class="val" id="v-sand">100%</span></div>

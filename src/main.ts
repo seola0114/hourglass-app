@@ -635,6 +635,7 @@ resetPanelBtn.addEventListener('click', (e) => {
   sim.resetFlowBudget();
   sparkMat2.opacity = 0;
   warmLight.intensity = 1.4;
+  activePreset = 60; // 기본 총 시간 60s → "1분" 프리셋 하이라이트
   applyNeckVisuals();
   updateRotButtons();
   syncPanel();
@@ -687,7 +688,26 @@ function syncPanel() {
   const sandPct = Math.round(sim.sandFill * 100);
   inputEl('s-sand').value = String(sandPct);
   document.getElementById('v-sand')!.textContent = sandPct + '%';
+  document.querySelectorAll<HTMLButtonElement>('.preset').forEach((b) => {
+    b.classList.toggle('active', +b.dataset.sec! === activePreset);
+  });
 }
+
+// 마지막으로 누른 시간 프리셋(목 굵기 정수 스냅으로 실제 시간이 살짝 달라도 하이라이트 유지).
+let activePreset: number | null = 60;
+
+// 총 시간 프리셋(30초/1분/2분): 슬라이더에 값을 넣고 input 이벤트로 기존 핸들러에 위임.
+document.querySelectorAll<HTMLButtonElement>('.preset').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    if (lockedVar === 'time') return; // 총 시간 잠금 시 무시
+    const sec = +btn.dataset.sec!;
+    const s = inputEl('s-duration');
+    s.value = String(sec);
+    s.dispatchEvent(new Event('input', { bubbles: true })); // 핸들러가 activePreset=null로 초기화
+    activePreset = sec;
+    syncPanel();
+  });
+});
 
 // ── 잠금(Lock): 세 결합 변수 중 하나를 고정하면 나머지가 흡수 대상을 바꾼다. ──
 type Coupled = 'time' | 'neck' | 'sand';
@@ -719,8 +739,10 @@ document.getElementById('lk-neck')!.addEventListener('click', () => toggleLock('
 document.getElementById('lk-sand')!.addEventListener('click', () => toggleLock('sand'));
 
 // 목 굵기가 바뀌었으면 유리 비주얼을 다시 만든 뒤 진행 상태 초기화.
+// 결합 슬라이더를 직접 조작하면 프리셋 하이라이트는 해제(프리셋 경로는 이후 다시 설정).
 function afterCoupledChange(neckBefore: number) {
   if (sim.neckHW !== neckBefore) applyNeckVisuals();
+  activePreset = null;
   resetRun();
   syncPanel();
 }
@@ -942,5 +964,6 @@ function animate(time: number) {
   requestAnimationFrame(animate);
 }
 
+syncPanel();
 updateUI();
 requestAnimationFrame(animate);
