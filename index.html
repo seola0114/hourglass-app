@@ -59,6 +59,7 @@
             text-shadow: 0 1px 4px rgba(40,40,80,0.5);
         }
         #status.done { color: rgba(255,230,170,0.95); }
+        #status.status-hidden { visibility: hidden; }
         #timer {
             margin-top: 8px; color: rgba(255,240,210,0.85);
             font-size: 24px; font-weight: 300;
@@ -365,6 +366,10 @@
         <label id="l-showtime" class="toggle-row">
             <span class="name">남은 시간 표시</span>
             <span class="switch"><input type="checkbox" id="s-showtime" checked aria-label="남은 시간 표시"><span class="track"></span></span>
+        </label>
+        <label id="l-showstatus" class="toggle-row">
+            <span class="name">진행 상태 표시</span>
+            <span class="switch"><input type="checkbox" id="s-showstatus" checked aria-label="진행 상태 표시"><span class="track"></span></span>
         </label>
     </div>
 </div>

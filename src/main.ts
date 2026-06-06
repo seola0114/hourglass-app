@@ -572,13 +572,16 @@ function fmtClock(sec: number): string {
   return `${(s / 60) | 0}:${String(s % 60).padStart(2, '0')}`;
 }
 
-// 남은 시간 표시 토글(패널 맨 아래): 끄면 카운트다운을 가린다. 타이머는 계속 진행.
+// 표시 토글(패널 맨 아래): 끄면 해당 요소를 가린다. 타이머는 계속 진행.
 const showTimeChk = document.getElementById('s-showtime') as HTMLInputElement;
-function applyShowTime() {
+const showStatusChk = document.getElementById('s-showstatus') as HTMLInputElement;
+function applyShowToggles() {
   timerEl.classList.toggle('time-hidden', !showTimeChk.checked);
+  statusEl.classList.toggle('status-hidden', !showStatusChk.checked);
 }
-showTimeChk.addEventListener('change', applyShowTime);
-applyShowTime();
+showTimeChk.addEventListener('change', applyShowToggles);
+showStatusChk.addEventListener('change', applyShowToggles);
+applyShowToggles();
 
 function updateUI() {
   statusEl.textContent =
@@ -589,7 +592,7 @@ function updateUI() {
         : state === 'PAUSE'
           ? '일시정지'
           : '완료';
-  statusEl.className = state === 'COMPLETED' ? 'done' : '';
+  statusEl.classList.toggle('done', state === 'COMPLETED');
   hintEl.textContent =
     state === 'PAUSE'
       ? '세로로 다시 세우면 이어서 진행'
