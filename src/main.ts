@@ -700,6 +700,8 @@ function syncPanel() {
   document.querySelectorAll<HTMLButtonElement>('.preset').forEach((b) => {
     b.classList.toggle('active', +b.dataset.sec! === activePreset);
   });
+  // 다른 조작 시 floor 안내는 일단 숨김 (총 시간 핸들러가 필요하면 다시 띄움).
+  document.getElementById('time-floor-note')!.hidden = true;
 }
 
 // 마지막으로 누른 시간 프리셋(목 굵기 정수 스냅으로 실제 시간이 살짝 달라도 하이라이트 유지).
@@ -763,6 +765,9 @@ inputEl('s-duration').addEventListener('input', (e) => {
   if (lockedVar === 'neck') sim.setSandToTime(v);
   else sim.setDuration(v);
   afterCoupledChange(neckBefore);
+  // 목 굵기가 한계(6)에 닿아 요청한 시간보다 짧게 못 내려가면 모래 양 줄이기를 안내.
+  const floorHit = lockedVar !== 'neck' && sim.neckHW >= 6 && v < Math.round(sim.duration);
+  document.getElementById('time-floor-note')!.hidden = !floorHit;
 });
 // 모래 양 드래그: time 잠금 시 목 굵기가, 그 외엔 총 시간이 흡수.
 inputEl('s-sand').addEventListener('input', (e) => {
