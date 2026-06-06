@@ -1057,15 +1057,14 @@ function animate(time: number) {
 
   updateSandMesh();
 
-  // Timer + 진행률 UI
+  // Timer + 상태 UI
   if (state === 'RUNNING' || state === 'PAUSE' || state === 'COMPLETED') {
     const nowRef = state === 'COMPLETED' ? tDone : state === 'PAUSE' ? tPause : Date.now();
     const e = (nowRef - t0) / 1000;
     const remain = state === 'COMPLETED' ? 0 : sim.duration - e;
     timerEl.textContent = fmtClock(remain);
-    const pct = state === 'COMPLETED' ? 100 : Math.min(100, Math.round((e / sim.duration) * 100));
-    const label = state === 'COMPLETED' ? '완료' : state === 'PAUSE' ? '일시정지' : '진행 중';
-    statusEl.textContent = label + ` · ${pct}%`;
+    statusEl.textContent =
+      state === 'COMPLETED' ? '완료' : state === 'PAUSE' ? '일시정지' : '진행 중';
   } else {
     // 대기 중: 설정한 총 시간을 미리 보여줘 카운트다운 대상이 분명하게.
     timerEl.textContent = fmtClock(sim.duration);
