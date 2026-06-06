@@ -7,12 +7,12 @@ export const HG_H = 4;
 export const MAX_R = 0.82;
 export const NECK_R = 0.12;
 
-// d in [0,1]: 0 = neck(중앙), 1 = 위/아래 끝.
-export function bulgeRadius(d: number): number {
+// d in [0,1]: 0 = neck(중앙), 1 = 위/아래 끝. neckR로 잘록함을 조절.
+export function bulgeRadius(d: number, neckR: number = NECK_R): number {
   const smooth = d * d * (3 - 2 * d);
   const shoulder = Math.sin(smooth * Math.PI * 0.5);
   const taper = 1 - Math.pow(d, 7) * 0.38;
-  return NECK_R + (MAX_R - NECK_R) * Math.pow(shoulder, 0.82) * taper;
+  return neckR + (MAX_R - neckR) * Math.pow(shoulder, 0.82) * taper;
 }
 
 export type Rng = () => number;
@@ -50,7 +50,12 @@ export function gravityFromAngle(angle: number): GravityDir {
 export class HourglassSim {
   readonly gW: number;
   readonly gH: number;
-  readonly neckHW: number;
+  /** neck 통로 반폭(셀). 클수록 목이 굵고 통과가 빠르다. setNeck로 조절. */
+  neckHW: number;
+  /** neck 3D 반경(유리 잘록함). neckHW에 비례해 setNeck에서 갱신. */
+  neckR: number;
+  /** 흐름 속도 기준이 되는 최초 neckHW. */
+  readonly baseNeckHW: number;
   readonly cCol: number;
   readonly cRow: number;
   readonly maxHW: number;
@@ -66,8 +71,8 @@ export class HourglassSim {
   colorCount: number;
 
   totalSandCount = 0;
-  /** 최초(가득 찬) 상태 기준 모래 수 — 렌더 버퍼 용량 산정용. */
-  readonly maxSandCount: number;
+  /** 지금까지 본 최대 모래 수 — 렌더 버퍼 용량 산정용. neck을 넓히면 갱신될 수 있음. */
+  maxSandCount: number;
   neckFlowBudget = 0;
   neckFlowPerSecond = 0;
 
@@ -79,6 +84,8 @@ export class HourglassSim {
     this.gW = opts.gW ?? 65;
     this.gH = opts.gH ?? 130;
     this.neckHW = opts.neckHW ?? 2;
+    this.baseNeckHW = this.neckHW;
+    this.neckR = NECK_R;
     this.duration = opts.duration ?? 60;
     this.sandFill = opts.sandFill ?? 1.0;
     this.slideMax = opts.slideMax ?? 3;
@@ -101,21 +108,30 @@ export class HourglassSim {
     this.fillBottom();
     this.totalSandCount = this.countSand();
     this.maxSandCount = this.totalSandCount;
-    this.neckFlowPerSecond = this.totalSandCount / this.duration;
+    this.recomputeFlow();
+  }
+
+  /** neck 굵기로 결정되는 흐름 속도 배율 (기준 neckHW에서 1.0). */
+  get neckSpeedFactor(): number {
+    return this.neckHW / this.baseNeckHW;
+  }
+
+  private recomputeFlow(): void {
+    this.neckFlowPerSecond = (this.totalSandCount / this.duration) * this.neckSpeedFactor;
   }
 
   /** 격자 row의 중심 기준 반폭(half-width, 셀 단위). */
   hw2(row: number): number {
     const d = Math.abs(row / (this.gH - 1) - 0.5) * 2;
-    const r = bulgeRadius(d);
-    const norm = (r - NECK_R) / (MAX_R - NECK_R);
+    const r = bulgeRadius(d, this.neckR);
+    const norm = (r - this.neckR) / (MAX_R - this.neckR);
     return Math.max(this.neckHW, Math.floor(this.neckHW + (this.maxHW - this.neckHW) * norm));
   }
 
   /** 격자 row의 3D 반경. */
   radius3D(row: number): number {
     const d = Math.abs(row / (this.gH - 1) - 0.5) * 2;
-    return bulgeRadius(d);
+    return bulgeRadius(d, this.neckR);
   }
 
   private buildBoundary(): void {
@@ -155,18 +171,29 @@ export class HourglassSim {
 
   setDuration(seconds: number): void {
     this.duration = seconds;
-    this.neckFlowPerSecond = this.totalSandCount / this.duration;
+    this.recomputeFlow();
   }
 
   setSandFill(ratio: number): void {
     this.sandFill = ratio;
     this.fillBottom();
     this.totalSandCount = this.countSand();
-    this.neckFlowPerSecond = this.totalSandCount / this.duration;
+    this.recomputeFlow();
   }
 
-  /** dt(초)만큼 neck 통과 예산 누적 (상한 cap). */
-  addFlowBudget(dt: number, cap = 3): void {
+  /** neck 굵기(통로 반폭, 셀)를 조절. 유리 잘록함·통로·흐름 속도를 함께 갱신. */
+  setNeck(halfWidth: number): void {
+    this.neckHW = Math.max(1, Math.min(this.maxHW, Math.round(halfWidth)));
+    this.neckR = NECK_R * (this.neckHW / this.baseNeckHW);
+    this.buildBoundary();
+    this.fillBottom();
+    this.totalSandCount = this.countSand();
+    if (this.totalSandCount > this.maxSandCount) this.maxSandCount = this.totalSandCount;
+    this.recomputeFlow();
+  }
+
+  /** dt(초)만큼 neck 통과 예산 누적. 상한은 목이 굵을수록 커짐. */
+  addFlowBudget(dt: number, cap = Math.max(3, this.neckHW * 2)): void {
     this.neckFlowBudget = Math.min(this.neckFlowBudget + this.neckFlowPerSecond * dt, cap);
   }
 

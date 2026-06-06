@@ -134,6 +134,40 @@ describe('flipGrid', () => {
   });
 });
 
+describe('setNeck (목 굵기)', () => {
+  it('목을 좁히면 흐름이 느려지고 넓히면 빨라진다', () => {
+    const sim = new HourglassSim({ neckHW: 2, duration: 60 });
+    const base = sim.neckFlowPerSecond;
+    sim.setNeck(1);
+    expect(sim.neckHW).toBe(1);
+    expect(sim.neckSpeedFactor).toBeCloseTo(0.5, 6);
+    expect(sim.neckFlowPerSecond).toBeLessThan(base);
+    sim.setNeck(4);
+    expect(sim.neckHW).toBe(4);
+    expect(sim.neckSpeedFactor).toBeCloseTo(2, 6);
+    expect(sim.neckFlowPerSecond).toBeGreaterThan(base);
+  });
+
+  it('목을 넓히면 유리 잘록함(neckR)이 커진다', () => {
+    const sim = new HourglassSim({ neckHW: 2 });
+    const r0 = sim.neckR;
+    sim.setNeck(4);
+    expect(sim.neckR).toBeGreaterThan(r0);
+    expect(bulgeRadius(0, sim.neckR)).toBeCloseTo(sim.neckR, 10);
+  });
+
+  it('목을 바꿔도 경계는 좌우 대칭을 유지한다', () => {
+    const sim = new HourglassSim({ neckHW: 2 });
+    sim.setNeck(5);
+    const { gW, gH, bnd } = sim;
+    for (let r = 0; r < gH; r++) {
+      for (let c = 0; c < gW; c++) {
+        expect(bnd[r * gW + c]).toBe(bnd[r * gW + (gW - 1 - c)]);
+      }
+    }
+  });
+});
+
 describe('시뮬레이션 stepping', () => {
   it('모래 수는 항상 보존된다 (질량 보존)', () => {
     const sim = new HourglassSim({ rng: seeded(6) });

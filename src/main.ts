@@ -155,13 +155,13 @@ function glassProfile() {
   for (let i = 0; i <= 220; i++) {
     const t = i / 220;
     const d = Math.abs(t - 0.5) * 2;
-    const r = bulgeRadius(d);
+    const r = bulgeRadius(d, sim.neckR);
     pts.push(new THREE.Vector2(r, (t - 0.5) * HG_H));
   }
   return pts;
 }
 
-const glassGeo = new THREE.LatheGeometry(glassProfile(), 128);
+let glassGeo = new THREE.LatheGeometry(glassProfile(), 128);
 const glassMat = new THREE.MeshPhysicalMaterial({
   color: 0xdffcff,
   transparent: true,
@@ -610,6 +610,13 @@ function rebuildSandMesh() {
   hgGroup.add(sandMesh);
 }
 
+function rebuildGlass() {
+  const oldGeo = glassGeo;
+  glassGeo = new THREE.LatheGeometry(glassProfile(), 128);
+  glassMesh.geometry = glassGeo;
+  oldGeo.dispose();
+}
+
 function inputEl(id: string): HTMLInputElement {
   return document.getElementById(id) as HTMLInputElement;
 }
@@ -647,6 +654,19 @@ inputEl('s-ppc').addEventListener('input', (e) => {
 inputEl('s-slide').addEventListener('input', (e) => {
   sim.slideMax = +(e.target as HTMLInputElement).value;
   document.getElementById('v-slide')!.textContent = String(sim.slideMax);
+});
+inputEl('s-neck').addEventListener('input', (e) => {
+  const v = +(e.target as HTMLInputElement).value;
+  sim.setNeck(v);
+  document.getElementById('v-neck')!.textContent = String(sim.neckHW);
+  rebuildGlass();
+  buildParticlePositions();
+  rebuildSandMesh();
+  state = 'IDLE';
+  sim.resetFlowBudget();
+  sparkMat2.opacity = 0;
+  warmLight.intensity = 1.4;
+  updateUI();
 });
 
 // ── Events ──
